@@ -25,7 +25,7 @@ def apriori(dataframe: DataFrame, support_threshold: float = 0.005) -> DataFrame
     threshold.
 
     Args:
-        dataframe (DataFrame): All transactions stored in the dataframe.
+        dataframe (DataFrame): All transactions stored in the dataframe. Needs to be one hot encoded.
         support_threshold (float, optional): Min threshold used to prune candidate itemsets
 
     Returns:
