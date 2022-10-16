@@ -94,6 +94,10 @@ def __is_candidate(old_itemsets: List[List[str]], candidate_set: np.ndarray) -> 
     Returns:
         bool: True if all k-1 element subsets of candidate_set are contained within old_itemsets.
     """
+    # Joining two 1 frequent itemsets, every subset must be frequent
+    if len(candidate_set) == 2:
+        return True
+
     for i in range(len(candidate_set)):
         if not candidate_set[0:i] + candidate_set[i+1:] in old_itemsets:
             return False
