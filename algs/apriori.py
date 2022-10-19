@@ -1,25 +1,11 @@
 import pandas as pd
 import numpy as np
-from typing import Dict, Iterator, List, Tuple
+from typing import Iterator, List, Tuple
 from pandas import DataFrame
+from util import get_frequent_1_itemsets
 
 from hash_tree import HashTree
 
-
-def support(subset: List[str], data_df: DataFrame) -> float:
-    """Calculates the support for a given itemset over all transactions.
-
-    Args:
-        subset (List[str]): List containing a candidate itemset
-        data_df (DataFrame): Contains all itemsets
-
-    Returns:
-        float: Support for the itemset
-    """
-    numberTransactions = len(data_df)
-    itemset_count = data_df.loc[:, subset].all(axis=1).sum()
-
-    return itemset_count / numberTransactions
 
 
 def apriori(dataframe: DataFrame, support_threshold: float = 0.005) -> DataFrame:
@@ -35,7 +21,7 @@ def apriori(dataframe: DataFrame, support_threshold: float = 0.005) -> DataFrame
         one contains the support for that itemset.
     """
     items = np.array(dataframe.columns)
-    all_sets = __get_frequent_1_itemsets(items, dataframe, support_threshold)
+    all_sets = get_frequent_1_itemsets(items, dataframe, support_threshold)
     frequent_k_itemsets = [frequent_1_itemset for frequent_1_itemset in all_sets.keys()]
     k = 1
 
@@ -114,27 +100,6 @@ def __is_candidate(old_itemsets: List[Tuple[str]], candidate_set: np.ndarray) ->
 
     return True
 
-
-def __get_frequent_1_itemsets(
-    items: np.ndarray, transactions: DataFrame, support_threshold: float
-) -> Dict[Tuple[str], float]:
-    """Calculates all frequent 1 itemsets and returns them aswell as their support.
-
-    Args:
-        items (np.ndarray): Numpy array of all items
-        transactions (DataFrame): The set of all transactions
-        support_threshold (float): Support threshold
-
-    Returns:
-        Dict[Tuple[str], float]: Frequent 1 itemsets and their support
-    """
-    frequent_1_item_sets = {}
-    for item in items:
-        supp = support([item], transactions)
-        if support_threshold <= supp:
-            frequent_1_item_sets[(item,)] = supp
-
-    return frequent_1_item_sets
 
 
 def __count_transactions(transactions: DataFrame, tree: HashTree, k: int) -> None:

@@ -3,7 +3,7 @@ from typing import Dict, Iterator, List, Tuple
 import numpy as np
 import pandas as pd
 from pandas import DataFrame
-from apriori import support
+from util import get_frequent_1_itemsets
 
 
 def ais(dataframe: DataFrame, support_threshold: float = 0.005) -> DataFrame:
@@ -20,10 +20,10 @@ def ais(dataframe: DataFrame, support_threshold: float = 0.005) -> DataFrame:
     """
     items = np.array(dataframe.columns)
     num_transactions = len(dataframe)
-    all = __get_frequent_1_itemsets(
+    all_set = get_frequent_1_itemsets(
         items, dataframe, support_threshold)
     frequent_k_itemsets = [list(frequent_1_itemset)
-                           for frequent_1_itemset in all.keys()]
+                           for frequent_1_itemset in all_set.keys()]
 
     while len(frequent_k_itemsets) != 0:
         candidate_sets = defaultdict(int)
@@ -33,19 +33,13 @@ def ais(dataframe: DataFrame, support_threshold: float = 0.005) -> DataFrame:
 
         frequent_k_itemsets = __get_frequent_k_itemsets(
             candidate_sets, num_transactions, support_threshold)
-        all.update(frequent_k_itemsets)
+        all_set.update(frequent_k_itemsets)
         frequent_k_itemsets = [list(item)
                                for item in frequent_k_itemsets.keys()]
 
     # Generate dataframe from all frequent itemsets and their support
-    df = pd.DataFrame(index=[i for i in range(
-        len(all))], columns=['support', 'itemsets'])
-
-    row = 0
-    for itemset, support in all.items():
-        df.iloc[row, 0] = support
-        df.iloc[row, 1] = list(itemset)
-        row += 1
+    df = pd.DataFrame(all_set.items(), index=[i for i in range(
+        len(all_set))], columns=['itemsets', 'support'])
 
     return df
 
@@ -71,27 +65,6 @@ def __generate_itemsets(frequent_k_itemsets: List[List[str]], transactions: Data
             for item in transaction:
                 if last_element < item:
                     yield tuple(itemset + [item])
-
-
-def __get_frequent_1_itemsets(items: np.ndarray, transactions: DataFrame, support_threshold: float) -> Dict[Tuple[str], float]:
-    """Generates all frequent 1-itemsets, satisfying the min support constraint and stores 
-    them with their support in a dictionary.
-
-    Args:
-        items (np.ndarray): All items over the transactions
-        transactions (DataFrame): All transactions
-        support_threshold (float): Support threshold
-
-    Returns:
-        Dict[Tuple[str], float]: Frequent itemsets as tuples and their support
-    """
-    frequent_1_items = {}
-    for item in items:
-        supp = support([item], transactions)
-        if supp >= support_threshold:
-            frequent_1_items[(item,)] = supp
-
-    return frequent_1_items
 
 
 def __get_frequent_k_itemsets(candidate_sets: Dict[Tuple[str], int], num_transactions: int, support_threshold: float) -> Dict[Tuple[str], float]:
