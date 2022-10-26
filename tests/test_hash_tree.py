@@ -80,7 +80,7 @@ class TestHashTree:
         self._setup_tree_with_items(2, tpls)
         transactions = [["A", "G", "B"], ["A", "S", "G", "F", "P"]]
         for transaction in transactions:
-            self.tree.transaction_counting(transaction, 0, 2)
+            self.tree.transaction_counting(transaction, 0, 2, {})
         frequent_itemsets = self.tree.get_frequent_itemsets(0.5, len(transactions))
         assert len(frequent_itemsets) == 4
         frequent_itemsets = self.tree.get_frequent_itemsets(1, len(transactions))
@@ -95,7 +95,7 @@ class TestHashTree:
         for tpl in tpls:
             assert itemsets[tpl] == 0
         transaction = sorted(["F","A","S","K"])
-        self.tree.transaction_counting(transaction, 0, 2)
+        self.tree.transaction_counting(transaction, 0, 2, {})
         itemsets = self.tree.get_all_itemsets()
         assert sum(itemsets.values()) == 1
 
@@ -108,7 +108,7 @@ class TestHashTree:
         for tpl in tpls:
             assert itemsets[tpl] == 0
         transaction = ["A", "B", "C", "E", "F", "X"]
-        self.tree.transaction_counting(transaction, 0, 3)
+        self.tree.transaction_counting(transaction, 0, 3, {})
         itemsets = self.tree.get_all_itemsets()
         assert sum(itemsets.values()) == 2
 
@@ -125,17 +125,17 @@ class TestHashTree:
             assert itemsets[tpl] == 0
 
         transaction = ["A", "G", "B"]
-        self.tree.transaction_counting(transaction, 0, 2)
+        self.tree.transaction_counting(transaction, 0, 2, {})
         itemsets = self.tree.get_all_itemsets()
         assert sum(itemsets.values()) == 2
 
         transaction = ["A", "S", "G", "F", "P"]
-        self.tree.transaction_counting(transaction, 0, 2)
+        self.tree.transaction_counting(transaction, 0, 2, {})
         itemsets = self.tree.get_all_itemsets()
         # Old count is 2 and new count would be 3
         assert sum(itemsets.values()) == 5
 
         transaction = ["P"]
-        self.tree.transaction_counting(transaction, 0, 2)
+        self.tree.transaction_counting(transaction, 0, 2, {})
         itemsets = self.tree.get_all_itemsets()
         assert sum(itemsets.values()) == 5

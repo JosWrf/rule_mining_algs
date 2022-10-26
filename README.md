@@ -5,9 +5,8 @@ a framework of the different algorithm implementations is built, which is then e
 
 ## Different Algorithms
 
-- Implement a hash tree for filtering frequent itemsets in the Apriori Algorithm
-- Implement Apriori TID
-- Tree Algorithm and Variants
+- FP Tree
+- Max/Closed frequent Itemset Algorithms
 - Constraint-based Algorithms
 - Multidimenional Algorithms
 
@@ -16,7 +15,6 @@ a framework of the different algorithm implementations is built, which is then e
 ```
 Decide what the input format will be (csv, .sqlite, .sql, .json, ...) ?
 Decide on the specific algorithms.
-CLI, GUI or WebApp ?
 Get data (spatial? , only transactional?, data with timestamps)
 Use algorithms from libraries or still try to implement them on my own, but use libs when available and faster?
 Synthetic datasets as use case?
@@ -27,10 +25,9 @@ Synthetic datasets as use case?
 ```
 - Optimize the apriori algorithm. Most likely the support method rn is the bottleneck.
 - Can adapt candidate generation in apriori by extending a set only with candidate k-1 itemsets when k-2 elements match and the k-1 th element of one set is greater than the any item in the other.
-- Implement Rule-Generation p.13-14 [Agarwal 94]
-- Implement Apriori Algorithm
 - Implement FP-Tree Algorithm and Variants
-- Implement RARM Algorithm
 - Implement Constraint-based Algorithms
-- Implement Multidimenional Algorithms
+- Implement Multidimensional Algorithms
+- Implement 
+- Implemnet ARM based Classification Algorithms 
 ```
