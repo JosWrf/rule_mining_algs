@@ -2,10 +2,9 @@ import pandas as pd
 import numpy as np
 from typing import Iterator, List, Tuple
 from pandas import DataFrame
-from util import get_frequent_1_itemsets
+from algs.util import get_frequent_1_itemsets
 
 from hash_tree import HashTree
-
 
 
 def apriori(dataframe: DataFrame, support_threshold: float = 0.005) -> DataFrame:
@@ -22,7 +21,8 @@ def apriori(dataframe: DataFrame, support_threshold: float = 0.005) -> DataFrame
     """
     items = np.array(dataframe.columns)
     all_sets = get_frequent_1_itemsets(items, dataframe, support_threshold)
-    frequent_k_itemsets = [frequent_1_itemset for frequent_1_itemset in all_sets.keys()]
+    frequent_k_itemsets = [
+        frequent_1_itemset for frequent_1_itemset in all_sets.keys()]
     k = 1
 
     while len(frequent_k_itemsets) != 0:
@@ -95,11 +95,10 @@ def __is_candidate(old_itemsets: List[Tuple[str]], candidate_set: np.ndarray) ->
         return True
 
     for i in range(len(candidate_set)):
-        if not candidate_set[0:i] + candidate_set[i + 1 :] in old_itemsets:
+        if not candidate_set[0:i] + candidate_set[i + 1:] in old_itemsets:
             return False
 
     return True
-
 
 
 def __count_transactions(transactions: DataFrame, tree: HashTree, k: int) -> None:
@@ -113,5 +112,6 @@ def __count_transactions(transactions: DataFrame, tree: HashTree, k: int) -> Non
         k (int): Length of candidate itemsets
     """
     for row in range(len(transactions)):
-        transaction = list(transactions.loc[row, list(transactions.loc[row])].index)
+        transaction = list(
+            transactions.loc[row, list(transactions.loc[row])].index)
         tree.transaction_counting(transaction, 0, k + 1, dict())

@@ -3,7 +3,7 @@ from typing import Dict, Iterator, List, Tuple
 import numpy as np
 import pandas as pd
 from pandas import DataFrame
-from util import get_frequent_1_itemsets
+from algs.util import get_frequent_1_itemsets
 
 
 def ais(dataframe: DataFrame, support_threshold: float = 0.005) -> DataFrame:

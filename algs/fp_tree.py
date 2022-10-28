@@ -4,7 +4,7 @@ import numpy as np
 from pandas import DataFrame
 from collections import defaultdict
 
-from util import get_frequent_1_itemsets
+from algs.util import get_frequent_1_itemsets
 
 
 class FPNode:
