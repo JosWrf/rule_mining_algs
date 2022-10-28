@@ -28,6 +28,5 @@ Synthetic datasets as use case?
 - Implement FP-Tree Algorithm and Variants
 - Implement Constraint-based Algorithms
 - Implement Multidimensional Algorithms
-- Implement 
-- Implemnet ARM based Classification Algorithms 
+- Implemnet ARM based Classification Algorithms
 ```

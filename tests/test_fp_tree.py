@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from algs.fp_tree import FPTree, conditional_pattern_base, construct_fp_tree, generate_patterns_single_path, get_transformed_dataframe
+from algs.fp_tree import FPTree, conditional_fp_tree, conditional_pattern_base, construct_fp_tree, generate_patterns_single_path, get_transformed_dataframe
 from algs.util import get_frequent_1_itemsets
 
 
@@ -115,7 +115,7 @@ class TestFPTree:
                                                       ("f", defaultdict(int, {tuple("c"): 3}))])
     def test_conditional_pattern_base(self, test_input, expected):
         self._setup_tree()
-        result = conditional_pattern_base(test_input, self.tree, 3)
+        result = conditional_pattern_base(test_input, self.tree, 3, {})
         assert result == expected
 
     def test_generate_patterns_single_path(self):
@@ -124,3 +124,21 @@ class TestFPTree:
         assert result[("f", "c", "a", "p")] == 3
         assert result[("f", "a", "p")] == 3
         assert result[("c", "p")] == 3
+
+    def test_conditional_fp_tree(self):
+        self._setup_tree()
+        header_table = {}
+        pattern_base = conditional_pattern_base(
+            "p", self.tree, 3, header_table)
+        conditional_tree = conditional_fp_tree(pattern_base, header_table)
+        assert len(conditional_tree.header_table) == 1
+        assert conditional_tree.root.children["c"] == conditional_tree.header_table["c"]
+
+        header_table = {}
+        pattern_base = conditional_pattern_base(
+            "m", self.tree, 3, header_table)
+        conditional_tree = conditional_fp_tree(pattern_base, header_table)
+        assert len(conditional_tree.header_table) == 3
+        assert conditional_tree.root.children["c"] == conditional_tree.header_table["c"]
+        assert conditional_tree.root.children["c"].children["f"] == conditional_tree.header_table["f"]
+        assert conditional_tree.root.children["c"].children["f"].children["a"] == conditional_tree.header_table["a"]
