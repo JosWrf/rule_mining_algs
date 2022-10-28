@@ -4,8 +4,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from algs.fp_tree import FPTree, conditional_fp_tree, conditional_pattern_base, construct_fp_tree, generate_patterns_single_path, get_transformed_dataframe
 from algs.util import get_frequent_1_itemsets
+from algs.fp_tree import FPTree, conditional_fp_tree, conditional_pattern_base, construct_fp_tree, generate_patterns_single_path, get_transformed_dataframe
 
 
 class TestFPTree:
