@@ -1,7 +1,8 @@
-from typing import Dict, List
+from typing import DefaultDict, Dict, List, Tuple
 import numpy as np
 
 from pandas import DataFrame
+from collections import defaultdict
 
 from algs.util import get_frequent_1_itemsets
 
@@ -14,17 +15,18 @@ class FPNode:
         self.count = count
         self.children = {}
 
+
 class FPTree:
     def __init__(self, header_table: Dict[str, None]) -> None:
         self.root = FPNode(None, None)
-        self.header_table = header_table 
+        self.header_table = header_table
 
     def add_transaction(self, transaction: List[str]) -> None:
 
         def __add_transaction(depth: 0, node: "FPNode") -> None:
-            if depth == len(transaction): 
-                return 
-            
+            if depth == len(transaction):
+                return
+
             item_name = transaction[depth]
             child = node.children.get(item_name)
             if child != None:
@@ -33,7 +35,7 @@ class FPTree:
             else:
                 child = FPNode(item_name, node)
                 node.children[item_name] = child
-                self.__set_node_link(item_name, child)      
+                self.__set_node_link(item_name, child)
 
             __add_transaction(depth + 1, child)
 
@@ -43,37 +45,148 @@ class FPTree:
         next_node = self.header_table.get(item_name)
         if next_node == None:
             self.header_table[item_name] = node
-        
+
         else:
             while next_node != None:
                 previous_node = next_node
                 next_node = next_node.node_link
-            
-            previous_node.node_link = node
 
+            previous_node.node_link = node
 
     def add_transactions(self, transactions: DataFrame) -> None:
         for row in range(len(transactions)):
-            transaction = list(transactions.loc[row, list(transactions.loc[row])].index)
+            transaction = list(
+                transactions.loc[row, list(transactions.loc[row])].index)
             self.add_transaction(transaction)
 
+    def get_sum_item_counts(self, item: str) -> int:
+        header_item = self.header_table[item]
+        count_sum = 0
 
-def fp_tree(transactions: DataFrame, min_support: float = 0.05) -> DataFrame:
-    # Get frequent items and sort transactions
-    items = np.array(transactions.columns)
-    frequent_items = get_frequent_1_itemsets(items, transactions, min_support)
-    frequent_items = {k[0]: v for k, v in sorted(frequent_items.items(), key=lambda item: item[1], reverse=True)}
-    sorted_transactions = get_transformed_dataframe(transactions, items, frequent_items)
+        while header_item != None:
+            count_sum += header_item.count
+            header_item = header_item.node_link
 
-    # Build header table for node links and construct FP tree
-    header_table = {k : None for k in frequent_items.keys()}
-    fptree = FPTree(header_table)
-    fptree.add_transactions(sorted_transactions)
+        return count_sum
+
+
+def fp_tree_growth(transactions: DataFrame, min_support: float = 0.05) -> DataFrame:
+    fp_tree = construct_fp_tree(
+        transactions, int(min_support*len(transactions)))
 
 
 def get_transformed_dataframe(old_df: DataFrame, all_items: np.ndarray, frequent_items: Dict[str, float]) -> DataFrame:
     drop_columns = [item for item in all_items if not frequent_items.get(item)]
     return old_df.drop(drop_columns, inplace=False, axis=1)[frequent_items.keys()]
 
-def fp_growth():
+
+def construct_fp_tree(transactions: DataFrame, min_support: float) -> FPTree:
+    # Get frequent items and sort transactions
+    items = np.array(transactions.columns)
+    frequent_items = get_frequent_1_itemsets(items, transactions, min_support)
+    frequent_items = {k[0]: v for k, v in sorted(
+        frequent_items.items(), key=lambda item: item[1], reverse=True)}
+    sorted_transactions = get_transformed_dataframe(
+        transactions, items, frequent_items)
+    # Build header table for node links and construct FP tree
+    header_table = {k: None for k in frequent_items.keys()}
+    fptree = FPTree(header_table)
+    fptree.add_transactions(sorted_transactions)
+    return fptree
+
+
+def conditional_pattern_base(item: str, fptree: FPTree, min_supp: int) -> DefaultDict[Tuple[str], int]:
+    """Generates the conditional base pattern for given fptree and item. Further this method removes
+    any non-frequent item from the paths (this is not a property of conditional pattern bases).
+
+    Args:
+        item (str): _description_
+        fptree (FPTree): _description_
+        min_supp (int): _description_
+
+    Returns:
+        DefaultDict[Tuple[str], int]: _description_
+    """
+    first_item = fptree.header_table.get(item)
+
+    paths = {}
+    frequent_items = defaultdict(int)
+    while first_item != None:
+        leaf_with_item_label = first_item
+        first_item = first_item.parent
+
+        # Create dictionary from one path and store the path string as tuple
+        path_str = tuple()
+        while first_item != fptree.root:
+            path_str = (first_item.item,) + path_str
+            frequent_items[first_item.item] += leaf_with_item_label.count
+            first_item = first_item.parent
+        paths[path_str] = leaf_with_item_label.count
+
+        first_item = leaf_with_item_label.node_link
+
+    # Calculate frequent items over all paths
+    frequent_items = {path: supp for path,
+                      supp in frequent_items.items() if supp >= min_supp}
+    paths_with_frequent_items = defaultdict(int)
+    for items, supp in paths.items():
+        adjusted_path = tuple()
+        for item in items:
+            if item in frequent_items:
+                adjusted_path += (item,)
+        if len(adjusted_path) > 0:
+            paths_with_frequent_items[adjusted_path] += supp
+
+    return paths_with_frequent_items
+
+
+def conditional_fp_tree(pattern_base: DefaultDict[Tuple[str], int]):
     pass
+
+
+def generate_patterns_single_path(suffix: Tuple[str], path: Tuple[str], count: int) -> Dict[Tuple[str], int]:
+    """Single path optimisation for a conditional fp tree. Builds all path combinations over the prefix path
+    and appends the suffix to those. The support count is the same for all combinations as the path's count
+    has been adjusted.
+
+    Args:
+        suffix (Tuple[str]): _description_
+        path (Tuple[str]): _description_
+        count (int): _description_
+
+    Returns:
+        Dict[Tuple[str], int]: _description_
+    """
+    frequent_itemsets = {}
+    seeds = []
+
+    for path_prefix in path:
+        for seed in range(len(seeds)):
+            frequent_itemset = seeds[seed] + (path_prefix,)
+            seeds.append(frequent_itemset)
+            frequent_itemsets[frequent_itemset + suffix] = count
+        seeds.append((path_prefix,))
+        frequent_itemsets[(path_prefix,) + suffix] = count
+
+    return frequent_itemsets
+
+
+def fp_growth(fptree: FPTree):
+    for item in fptree.header_table.keys():
+        __fp_growth(tuple(item), fptree)
+
+
+def __fp_growth(item_suffix: Tuple[str], fptree: FPTree):
+    item = item_suffix[0]
+    # TODO: Add item to frequent itemsets if count > min_supp
+    count = fptree.get_sum_item_counts(item)
+    pattern_base = conditional_pattern_base(item, fptree)
+    # empty set case
+    if len(pattern_base) == 0:
+        return
+    # single path case
+    if len(pattern_base) == 1:
+        path, count = next(iter(pattern_base.items()))
+        generate_patterns_single_path(item_suffix, path, count)
+
+    conditional_fp_tree(pattern_base)
