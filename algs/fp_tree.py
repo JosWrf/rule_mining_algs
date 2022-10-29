@@ -120,10 +120,12 @@ def fp_growth(transactions: DataFrame, min_support: float = 0.05) -> DataFrame:
         transactions, min_support)
     min_supp = int(min_support*len(transactions))
     itemsets = fp_tree_growth(fptree, min_supp)
+    # Build df from dictionary
     fp_itemsets = DataFrame(itemsets.items(), index=[i for i in range(
         len(itemsets))], columns=['itemsets', 'support'])
     fp_itemsets["support"] = fp_itemsets["support"] / len(transactions)
-    fp_itemsets = fp_itemsets[fp_itemsets['support'] > min_support]
+    fp_itemsets = fp_itemsets[fp_itemsets['support']
+                              > min_support]  # Cut off rounding errors
 
     return fp_itemsets
 

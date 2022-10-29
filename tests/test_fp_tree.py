@@ -5,7 +5,7 @@ import pandas as pd
 import pytest
 
 from algs.util import get_frequent_1_itemsets
-from algs.fp_tree import FPTree, conditional_fp_tree, conditional_pattern_base, construct_fp_tree, generate_patterns_single_path, get_transformed_dataframe
+from algs.fp_tree import FPTree, conditional_fp_tree, conditional_pattern_base, construct_fp_tree, fp_growth, fp_tree_growth, generate_patterns_single_path, get_transformed_dataframe
 
 
 class TestFPTree:
@@ -142,3 +142,26 @@ class TestFPTree:
         assert conditional_tree.root.children["c"] == conditional_tree.header_table["c"]
         assert conditional_tree.root.children["c"].children["f"] == conditional_tree.header_table["f"]
         assert conditional_tree.root.children["c"].children["f"].children["a"] == conditional_tree.header_table["a"]
+
+    def test_tree_growth(self):
+        self._setup_tree()
+        result = fp_tree_growth(self.tree, 3)
+        # p as suffix
+        assert result[("c", "p")] == 3
+        # m as suffix (not all combinations)
+        assert result[("c", "f", "m")] == 3
+        assert result[("c", "f", "a", "m")] == 3
+        # a as suffix
+        assert result[("c", "f", "a")] == 3
+        assert result[("c", "a")] == 3
+        assert result[("f", "a")] == 3
+        # Test whether all frequent items are contained
+        assert {(item,)
+                for item in self.tree.header_table}.issubset(result.keys())
+
+    def test_fp_growth(self):
+        self._setup()
+        min_support = 0.4
+        result = fp_growth(self.transactions, min_support)
+        min_supp = result['support'].min()
+        assert min_supp >= min_support
