@@ -115,7 +115,17 @@ def __count_transactions(transactions: DataFrame, tree: HashTree, k: int) -> Non
         tree.transaction_counting(transaction, 0, k + 1, dict())
 
 
-def a_close(dataframe: DataFrame, support_threshold: float = 0.005):
+def a_close(dataframe: DataFrame, support_threshold: float = 0.005) -> DataFrame:
+    """Implemenatition of the a-close algorithm according to 'Discovering frequent closed itemsets 
+    for association rules'.
+
+    Args:
+        dataframe (DataFrame): All transactions, one-hot encoded, columns are lexicographically sorted.
+        support_threshold (float, optional): Minimum support threshold. Defaults to 0.005.
+
+    Returns:
+        DataFrame: Frequent closed itemsets and their support
+    """
     # Calculate frequent 1-generators
     items = np.array(dataframe.columns)
     generators = [get_frequent_1_itemsets(items, dataframe, support_threshold)]
@@ -126,6 +136,7 @@ def a_close(dataframe: DataFrame, support_threshold: float = 0.005):
     k = 1
 
     while len(current_generators) != 0:
+        # Build (i+1)-generators by combining frequent (i)-generators and count support
         hash_tree = HashTree()
 
         for candidate_set in __generate_itemsets_by_join(current_generators, k):
@@ -139,7 +150,7 @@ def a_close(dataframe: DataFrame, support_threshold: float = 0.005):
         )
 
         # Remove generators having the same support as one of their i-subsets
-        current_generators, found = __remove_same_closure_as_subset(current_generators, generators[k-1])
+        current_generators, found = _remove_same_closure_as_subset(current_generators, generators[k-1])
         closed_level = k if found and closed_level == 0 else closed_level
 
         generators.append(current_generators)
@@ -153,7 +164,7 @@ def a_close(dataframe: DataFrame, support_threshold: float = 0.005):
     for fc in generators[:closed_level-1]:
         frequent_closed_itemsets.update(fc)
 
-    # Generate dataframe from all frequent itemsets and their support
+    # Generate dataframe from all closed frequent itemsets and their support
     df = pd.DataFrame(
         frequent_closed_itemsets.items(),
         index=[i for i in range(len(frequent_closed_itemsets))],
@@ -163,9 +174,20 @@ def a_close(dataframe: DataFrame, support_threshold: float = 0.005):
     return df
 
 
-def __remove_same_closure_as_subset(
+def _remove_same_closure_as_subset(
     current_generators: Dict[Tuple[str], float], all_generators: Dict[Tuple[str], float]
 ) -> Tuple[Dict[Tuple[str], float], bool]:
+    """Prunes all (i+1)-generators, that have a subset i-generator with the same support.
+    This implies their closure is the same and thus the (i+1)-generator is redundant.
+
+    Args:
+        current_generators (Dict[Tuple[str], float]): (i+1)-generators
+        all_generators (Dict[Tuple[str], float]): i-generators
+
+    Returns:
+        Tuple[Dict[Tuple[str], float], bool]: Dictonary with all redundant generators removed and 
+        a flag indicating, whether a generator happened to be redundant.
+    """
     same_closure = False
     pruned_generators = {}
 
@@ -184,6 +206,16 @@ def __remove_same_closure_as_subset(
     return pruned_generators, same_closure
 
 def closure(transactions: DataFrame, unclosed_generators: List[Dict[Tuple[str], float]]) -> Dict[Tuple[str], float]:
+    """Calculates the galois closure operator h. It receives a list of potentially unclosed generators and 
+    updates the closure for each generator by building the intersection with f(o) where o is a transaction. 
+
+    Args:
+        transactions (DataFrame): All transactions 
+        unclosed_generators (List[Dict[Tuple[str], float]]): Generators for i >= level, having at least one unclosed generator
+
+    Returns:
+        Dict[Tuple[str], float]: The closure for all itemsets in unclosed_generators.
+    """
     fc = {generator: [set(),supp] for i_generators in unclosed_generators for generator,supp in i_generators.items()}
 
     for row in range(len(transactions)):
