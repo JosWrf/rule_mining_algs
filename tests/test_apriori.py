@@ -2,14 +2,56 @@ from mlxtend.preprocessing import TransactionEncoder
 import numpy as np
 import pandas as pd
 
-from algs.apriori import _remove_same_closure_as_subset, a_close, closure
+from algs.apriori import (
+    _generate_itemsets_by_join,
+    _remove_same_closure_as_subset,
+    a_close,
+    apriori,
+    closure,
+)
 
 from algs.util import get_frequent_1_itemsets
 
 
+class TestAPriori:
+    def _setup(self) -> None:
+        data = [  # Data-Mining context from APriori paper
+            ["1", "3", "4"],
+            ["2", "3", "5"],
+            ["1", "2", "3", "5"],
+            ["2", "5"],
+        ]
+        te = TransactionEncoder()
+        te_ary = te.fit_transform(data)
+        self.transactions = pd.DataFrame(te_ary, columns=te.columns_)
+
+    def test_apriori(self):
+        self._setup()
+        result = apriori(self.transactions, 0.5)
+        assert len(result) == 9
+        frequent_itemsets = {
+            result.loc[row, "itemsets"]: result.loc[row, "support"]
+            for row in range(len(result))
+        }
+        assert frequent_itemsets[("2", "3", "5")] == 0.5
+        assert frequent_itemsets[("2", "3")] == 0.5
+        assert frequent_itemsets[("1",)] == 0.5
+        assert frequent_itemsets[("5",)] == 0.75
+
+    def test_generate_candidates_by_join(self):
+        old_candidates = [("1",), ("2",), ("3",), ("5",)]
+        k = 1
+        result = [
+            candidate for candidate in _generate_itemsets_by_join(old_candidates, k)
+        ]
+        assert len(result) == 6
+        assert ("1", "5") in result
+        assert ("2", "3") in result
+
+
 class TestAClose:
     def _setup(self) -> None:
-        data = [  # Data-Mining paper from A-Close paper
+        data = [  # Data-Mining context from A-Close paper
             ["A", "C", "D"],
             ["B", "C", "E"],
             ["A", "B", "C", "E"],

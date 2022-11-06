@@ -28,7 +28,7 @@ def apriori(dataframe: DataFrame, support_threshold: float = 0.005) -> DataFrame
         # Iterate over potential itemsets of length k and check whether they are frequent
         hash_tree = HashTree()
 
-        for candidate_set in __generate_itemsets_by_join(frequent_k_itemsets, k):
+        for candidate_set in _generate_itemsets_by_join(frequent_k_itemsets, k):
             if __is_candidate(frequent_k_itemsets, candidate_set):
                 hash_tree.add_itemset(candidate_set)
 
@@ -52,7 +52,7 @@ def apriori(dataframe: DataFrame, support_threshold: float = 0.005) -> DataFrame
     return df
 
 
-def __generate_itemsets_by_join(
+def _generate_itemsets_by_join(
     old_itemsets: List[Tuple[str]], k: int
 ) -> Iterator[Tuple[str]]:
     """Joins frequent k-1 itemsets to generate k itemsets.
@@ -77,14 +77,14 @@ def __generate_itemsets_by_join(
                 yield old_itemsets[i] + (old_itemsets[j][k - 1],)
 
 
-def __is_candidate(old_itemsets: List[Tuple[str]], candidate_set: np.ndarray) -> bool:
+def __is_candidate(old_itemsets: List[Tuple[str]], candidate_set: Tuple[str]) -> bool:
     """Checks whether there's any subset contained in the candidate_set, that isn't
     contained within the old_itemsets. If that is the case the candidate set can not
     be a frequent itemset and False is returned.
 
     Args:
         old_itemsets (List[Tuple[str]]): List of itemsets of length k
-        candidate_set (np.ndarray): Candidate itemset with length k+1
+        candidate_set (Tuple[str]): Candidate itemset with length k+1
 
     Returns:
         bool: True if all k-1 element subsets of candidate_set are contained within old_itemsets.
@@ -139,7 +139,7 @@ def a_close(dataframe: DataFrame, support_threshold: float = 0.005) -> DataFrame
         # Build (i+1)-generators by combining frequent (i)-generators and count support
         hash_tree = HashTree()
 
-        for candidate_set in __generate_itemsets_by_join(current_generators, k):
+        for candidate_set in _generate_itemsets_by_join(current_generators, k):
             if __is_candidate(current_generators, candidate_set):
                 hash_tree.add_itemset(candidate_set)
 
