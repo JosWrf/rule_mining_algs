@@ -22,6 +22,7 @@ Synthetic datasets as use case?
 ## TODO
 
 ```
+- Throw an exception in apriori/ais/aclose when items are not lexicographically sorted
 - Implement Closed/Max frequent Itemset Algorithms
 (- Implement Constraint-based Algorithms)
 - Implement Multilevel Algorithms

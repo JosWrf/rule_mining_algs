@@ -1,10 +1,10 @@
 import pandas as pd
 import numpy as np
-from typing import Iterator, List, Tuple
+from typing import Dict, Iterator, List, Tuple
 from pandas import DataFrame
 from algs.util import get_frequent_1_itemsets
 
-from hash_tree import HashTree
+from algs.hash_tree import HashTree
 
 
 def apriori(dataframe: DataFrame, support_threshold: float = 0.005) -> DataFrame:
@@ -21,8 +21,7 @@ def apriori(dataframe: DataFrame, support_threshold: float = 0.005) -> DataFrame
     """
     items = np.array(dataframe.columns)
     all_sets = get_frequent_1_itemsets(items, dataframe, support_threshold)
-    frequent_k_itemsets = [
-        frequent_1_itemset for frequent_1_itemset in all_sets.keys()]
+    frequent_k_itemsets = [frequent_1_itemset for frequent_1_itemset in all_sets.keys()]
     k = 1
 
     while len(frequent_k_itemsets) != 0:
@@ -67,7 +66,7 @@ def __generate_itemsets_by_join(
         Iterator[Tuple[str]]: A candidate k itemset
     """
     for i in range(len(old_itemsets)):
-        for j in range(i+1, len(old_itemsets)):
+        for j in range(i + 1, len(old_itemsets)):
             skip = False
             for l in range(k - 1):
                 if old_itemsets[i][l] != old_itemsets[j][l]:
@@ -95,15 +94,15 @@ def __is_candidate(old_itemsets: List[Tuple[str]], candidate_set: np.ndarray) ->
         return True
 
     for i in range(len(candidate_set)):
-        if not candidate_set[0:i] + candidate_set[i + 1:] in old_itemsets:
+        if not candidate_set[0:i] + candidate_set[i + 1 :] in old_itemsets:
             return False
 
     return True
 
 
 def __count_transactions(transactions: DataFrame, tree: HashTree, k: int) -> None:
-    """Iterates over all transactions and uses them to traverse the hash tree. If a 
-    leaf is encountered all itemsets at that leaf are compared against the transaction 
+    """Iterates over all transactions and uses them to traverse the hash tree. If a
+    leaf is encountered all itemsets at that leaf are compared against the transaction
     and their count is incremented by 1.
 
     Args:
@@ -112,6 +111,93 @@ def __count_transactions(transactions: DataFrame, tree: HashTree, k: int) -> Non
         k (int): Length of candidate itemsets
     """
     for row in range(len(transactions)):
-        transaction = list(
-            transactions.loc[row, list(transactions.loc[row])].index)
+        transaction = list(transactions.loc[row, list(transactions.loc[row])].index)
         tree.transaction_counting(transaction, 0, k + 1, dict())
+
+
+def a_close(dataframe: DataFrame, support_threshold: float = 0.005):
+    # Calculate frequent 1-generators
+    items = np.array(dataframe.columns)
+    generators = [get_frequent_1_itemsets(items, dataframe, support_threshold)]
+    current_generators = [
+        frequent_1_itemset for frequent_1_itemset in generators[0].keys()
+    ]
+    closed_level = 0
+    k = 1
+
+    while len(current_generators) != 0:
+        hash_tree = HashTree()
+
+        for candidate_set in __generate_itemsets_by_join(current_generators, k):
+            if __is_candidate(current_generators, candidate_set):
+                hash_tree.add_itemset(candidate_set)
+
+        __count_transactions(dataframe, hash_tree, k)
+
+        current_generators = hash_tree.get_frequent_itemsets(
+            support_threshold, len(dataframe)
+        )
+
+        # Remove generators having the same support as one of their i-subsets
+        current_generators, found = __remove_same_closure_as_subset(current_generators, generators[k-1])
+        closed_level = k if found and closed_level == 0 else closed_level
+
+        generators.append(current_generators)
+        current_generators = sorted(current_generators.keys())
+        k += 1
+
+    # Calculate closure for all generators at index >= level
+    frequent_closed_itemsets = {}
+    if closed_level > 0:
+        frequent_closed_itemsets = closure(dataframe, generators[closed_level-1:-1])
+    for fc in generators[:closed_level-1]:
+        frequent_closed_itemsets.update(fc)
+
+    # Generate dataframe from all frequent itemsets and their support
+    df = pd.DataFrame(
+        frequent_closed_itemsets.items(),
+        index=[i for i in range(len(frequent_closed_itemsets))],
+        columns=["closed_itemsets", "support"],
+    )
+
+    return df
+
+
+def __remove_same_closure_as_subset(
+    current_generators: Dict[Tuple[str], float], all_generators: Dict[Tuple[str], float]
+) -> Tuple[Dict[Tuple[str], float], bool]:
+    same_closure = False
+    pruned_generators = {}
+
+    for candidate_set, supp in current_generators.items():
+        valid = True
+        for i in range(len(candidate_set)):
+            i_generator = candidate_set[0:i] + candidate_set[i + 1 :]
+            if all_generators[i_generator] == supp:
+                same_closure = True
+                valid = False
+                break
+
+        if valid:
+            pruned_generators[candidate_set] = supp
+
+    return pruned_generators, same_closure
+
+def closure(transactions: DataFrame, unclosed_generators: List[Dict[Tuple[str], float]]) -> Dict[Tuple[str], float]:
+    fc = {generator: [set(),supp] for i_generators in unclosed_generators for generator,supp in i_generators.items()}
+
+    for row in range(len(transactions)):
+        transaction = list(transactions.loc[row, list(transactions.loc[row])].index)
+
+        for p in fc.keys():
+            if set(p).issubset(transaction):
+                if len(fc[p][0]) == 0:
+                    fc[p][0] = set(transaction)
+                else:
+                    fc[p][0] = fc[p][0].intersection(set(transaction))
+
+    return {tuple(sorted(generator[0])): generator[1] for generator in fc.values()}
+
+
+
+    
