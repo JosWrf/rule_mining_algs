@@ -21,7 +21,8 @@ def apriori(dataframe: DataFrame, support_threshold: float = 0.005) -> DataFrame
     """
     items = np.array(dataframe.columns)
     all_sets = get_frequent_1_itemsets(items, dataframe, support_threshold)
-    frequent_k_itemsets = [frequent_1_itemset for frequent_1_itemset in all_sets.keys()]
+    frequent_k_itemsets = [
+        frequent_1_itemset for frequent_1_itemset in all_sets.keys()]
     k = 1
 
     while len(frequent_k_itemsets) != 0:
@@ -94,7 +95,7 @@ def __is_candidate(old_itemsets: List[Tuple[str]], candidate_set: Tuple[str]) ->
         return True
 
     for i in range(len(candidate_set)):
-        if not candidate_set[0:i] + candidate_set[i + 1 :] in old_itemsets:
+        if not candidate_set[0:i] + candidate_set[i + 1:] in old_itemsets:
             return False
 
     return True
@@ -111,12 +112,13 @@ def __count_transactions(transactions: DataFrame, tree: HashTree, k: int) -> Non
         k (int): Length of candidate itemsets
     """
     for row in range(len(transactions)):
-        transaction = list(transactions.loc[row, list(transactions.loc[row])].index)
+        transaction = list(
+            transactions.loc[row, list(transactions.loc[row])].index)
         tree.transaction_counting(transaction, 0, k + 1, dict())
 
 
 def a_close(dataframe: DataFrame, support_threshold: float = 0.005) -> DataFrame:
-    """Implemenatition of the a-close algorithm according to 'Discovering frequent closed itemsets 
+    """Implementation of the a-close algorithm according to 'Discovering frequent closed itemsets
     for association rules'.
 
     Args:
@@ -124,7 +126,7 @@ def a_close(dataframe: DataFrame, support_threshold: float = 0.005) -> DataFrame
         support_threshold (float, optional): Minimum support threshold. Defaults to 0.005.
 
     Returns:
-        DataFrame: Frequent closed itemsets and their support
+        DataFrame: Generators, their frequent closed itemsets and support
     """
     # Calculate frequent 1-generators
     items = np.array(dataframe.columns)
@@ -150,7 +152,8 @@ def a_close(dataframe: DataFrame, support_threshold: float = 0.005) -> DataFrame
         )
 
         # Remove generators having the same support as one of their i-subsets
-        current_generators, found = _remove_same_closure_as_subset(current_generators, generators[k-1])
+        current_generators, found = _remove_same_closure_as_subset(
+            current_generators, generators[k-1])
         closed_level = k if found and closed_level == 0 else closed_level
 
         generators.append(current_generators)
@@ -158,18 +161,26 @@ def a_close(dataframe: DataFrame, support_threshold: float = 0.005) -> DataFrame
         k += 1
 
     # Calculate closure for all generators at index >= level
-    frequent_closed_itemsets = {}
+    generators_and_closures = {}
+    for k_generators in generators[:closed_level-1]:
+        for k_generator, supp in k_generators.items():
+            generators_and_closures[k_generator] = (k_generator, supp)
     if closed_level > 0:
-        frequent_closed_itemsets = closure(dataframe, generators[closed_level-1:-1])
-    for fc in generators[:closed_level-1]:
-        frequent_closed_itemsets.update(fc)
+        generators_and_closures.update(
+            closure(dataframe, generators[closed_level-1:-1]))
 
-    # Generate dataframe from all closed frequent itemsets and their support
+    # Generate dataframe from all generators their closed frequent itemsets and support
     df = pd.DataFrame(
-        frequent_closed_itemsets.items(),
-        index=[i for i in range(len(frequent_closed_itemsets))],
-        columns=["closed_itemsets", "support"],
+        index=[i for i in range(len(generators_and_closures))],
+        columns=["generators", "closed_itemsets", "support"],
     )
+
+    i = 0
+    for generator, closed in generators_and_closures.items():
+        df.loc[i, "generators"] = generator
+        df.loc[i, "closed_itemsets"] = closed[0]
+        df.loc[i, "support"] = closed[1]
+        i += 1
 
     return df
 
@@ -185,7 +196,7 @@ def _remove_same_closure_as_subset(
         all_generators (Dict[Tuple[str], float]): i-generators
 
     Returns:
-        Tuple[Dict[Tuple[str], float], bool]: Dictonary with all redundant generators removed and 
+        Tuple[Dict[Tuple[str], float], bool]: Dictonary with all redundant generators removed and
         a flag indicating, whether a generator happened to be redundant.
     """
     same_closure = False
@@ -194,7 +205,7 @@ def _remove_same_closure_as_subset(
     for candidate_set, supp in current_generators.items():
         valid = True
         for i in range(len(candidate_set)):
-            i_generator = candidate_set[0:i] + candidate_set[i + 1 :]
+            i_generator = candidate_set[0:i] + candidate_set[i + 1:]
             if all_generators[i_generator] == supp:
                 same_closure = True
                 valid = False
@@ -205,21 +216,24 @@ def _remove_same_closure_as_subset(
 
     return pruned_generators, same_closure
 
+
 def closure(transactions: DataFrame, unclosed_generators: List[Dict[Tuple[str], float]]) -> Dict[Tuple[str], float]:
-    """Calculates the galois closure operator h. It receives a list of potentially unclosed generators and 
-    updates the closure for each generator by building the intersection with f(o) where o is a transaction. 
+    """Calculates the galois closure operator h. It receives a list of potentially unclosed generators and
+    updates the closure for each generator by building the intersection with f(o) where o is a transaction.
 
     Args:
-        transactions (DataFrame): All transactions 
+        transactions (DataFrame): All transactions
         unclosed_generators (List[Dict[Tuple[str], float]]): Generators for i >= level, having at least one unclosed generator
 
     Returns:
-        Dict[Tuple[str], float]: The closure for all itemsets in unclosed_generators.
+        Dict[Tuple[str], Tuple[str,float]]: The generator and their closure for all itemsets in unclosed_generators.
     """
-    fc = {generator: [set(),supp] for i_generators in unclosed_generators for generator,supp in i_generators.items()}
+    fc = {generator: [set(), supp]
+          for i_generators in unclosed_generators for generator, supp in i_generators.items()}
 
     for row in range(len(transactions)):
-        transaction = list(transactions.loc[row, list(transactions.loc[row])].index)
+        transaction = list(
+            transactions.loc[row, list(transactions.loc[row])].index)
 
         for p in fc.keys():
             if set(p).issubset(transaction):
@@ -228,8 +242,4 @@ def closure(transactions: DataFrame, unclosed_generators: List[Dict[Tuple[str], 
                 else:
                     fc[p][0] = fc[p][0].intersection(set(transaction))
 
-    return {tuple(sorted(generator[0])): generator[1] for generator in fc.values()}
-
-
-
-    
+    return {generator: (tuple(sorted(closure[0])), closure[1]) for generator, closure in fc.items()}

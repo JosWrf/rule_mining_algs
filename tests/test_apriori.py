@@ -67,15 +67,18 @@ class TestAClose:
         items = np.array(self.transactions.columns)
         frequent_items = get_frequent_1_itemsets(items, self.transactions, 0.4)
         assert len(frequent_items) == 4
-        assert list(sorted(frequent_items.keys())) == [("A",), ("B",), ("C",), ("E",)]
+        assert list(sorted(frequent_items.keys())) == [
+            ("A",), ("B",), ("C",), ("E",)]
 
     def test_a_close(self):
         self._setup()
         result = a_close(self.transactions, 0.4)
-        assert len(result) == 5
+        assert len(result) == 8
         assert set(result["closed_itemsets"]) == set(
             [("A", "C"), ("B", "E"), ("C",), ("A", "B", "C", "E"), ("B", "C", "E")]
         )
+        assert set(result["generators"]) == set(
+            [("A",), ("C",), ("B",), ("E",), ("A", "B"), ("A", "E"), ("B", "C"), ("C", "E")])
 
     def test_closure(self):
         self._setup()
@@ -83,15 +86,35 @@ class TestAClose:
         frequent_items = get_frequent_1_itemsets(items, self.transactions, 0.4)
         result = closure(self.transactions, [frequent_items])
 
-        assert set(result.keys()) == set([("A", "C"), ("B", "E"), ("C",)])
+        # Closures of frequent 1-generators
+        assert set([val[0] for val in result.values()]) == set(
+            [("A", "C"), ("B", "E"), ("C",)])
         result = closure(
             self.transactions,
             [frequent_items]
-            + [{("A", "B"): 0.4, ("A", "E"): 0.4, ("B", "C"): 0.6, ("C", "E"): 0.6}],
+            + [{("A", "B"): 0.4, ("A", "E"): 0.4,
+                ("B", "C"): 0.6, ("C", "E"): 0.6}],
         )
-        assert set(result.keys()) == set(
+
+        # Closures of frequent 1/2-generators
+        assert set([val[0] for val in result.values()]) == set(
             [("A", "C"), ("B", "E"), ("C",), ("A", "B", "C", "E"), ("B", "C", "E")]
         )
+
+        assert result[("A", "E")][0] == ("A", "B", "C", "E")
+        # {A,B},{A,E} are generators for {A,B,C,E}
+        assert result[("A", "E")][0] == result[("A", "B")][0]
+
+        assert result[("C", "E")][0] == ("B", "C", "E")
+        # {C,E},{B,C} are generators for {B,C,E}
+        assert result[("C", "E")][0] == result[("B", "C")][0]
+
+        assert result[("E",)][0] == ("B", "E")
+        # {E},{B} are generators for {B,E}
+        assert result[("E",)][0] == result[("B",)][0]
+
+        assert result[("A",)][0] == ("A", "C")
+        assert result[("C",)][0] == ("C",)
 
     def test_closure_idempotency(self):
         self._setup()
@@ -108,7 +131,12 @@ class TestAClose:
                 }
             ],
         )
+        # Generators wouldn't change anyways
         assert set(result.keys()) == set(
+            [("A", "C"), ("B", "E"), ("C",), ("A", "B", "C", "E"), ("B", "C", "E")]
+        )
+        # Closure of closed generators should remain the same
+        assert set([val[0] for val in result.values()]) == set(
             [("A", "C"), ("B", "E"), ("C",), ("A", "B", "C", "E"), ("B", "C", "E")]
         )
 
