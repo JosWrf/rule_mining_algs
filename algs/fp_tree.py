@@ -79,9 +79,8 @@ class FPTree:
         Args:
             transactions (DataFrame): All transactions to build the fp tree from.
         """
-        for row in range(len(transactions)):
-            transaction = list(
-                transactions.loc[row, list(transactions.loc[row])].index)
+        for idx, row in transactions.iterrows():
+            transaction = list(transactions.loc[idx:, list(row)])
             self.add_transaction(transaction)
 
     def get_sum_item_counts(self, item: str) -> int:

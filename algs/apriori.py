@@ -111,9 +111,8 @@ def __count_transactions(transactions: DataFrame, tree: HashTree, k: int) -> Non
         tree (HashTree): HashTree containing candidate itemsets
         k (int): Length of candidate itemsets
     """
-    for row in range(len(transactions)):
-        transaction = list(
-            transactions.loc[row, list(transactions.loc[row])].index)
+    for idx, row in transactions.iterrows():
+        transaction = list(transactions.loc[idx:, list(row)])
         tree.transaction_counting(transaction, 0, k + 1, dict())
 
 
@@ -231,9 +230,8 @@ def closure(transactions: DataFrame, unclosed_generators: List[Dict[Tuple[str], 
     fc = {generator: [set(), supp]
           for i_generators in unclosed_generators for generator, supp in i_generators.items()}
 
-    for row in range(len(transactions)):
-        transaction = list(
-            transactions.loc[row, list(transactions.loc[row])].index)
+    for idx, row in transactions.iterrows():
+        transaction = list(transactions.loc[idx:, list(row)])
 
         for p in fc.keys():
             if set(p).issubset(transaction):

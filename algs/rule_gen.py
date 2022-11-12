@@ -65,16 +65,8 @@ def generate_rules(frequent_itemsets: DataFrame, min_conf: float = 0.5) -> DataF
             for rule in __ap_genrules(itemsets[1], consequents, 1):
                 rules.append(rule)
 
-    df = DataFrame(
-        index=[i for i in range(len(rules))],
-        columns=["antecedent", "consequent", "confidence", "support"],
-    )
-
-    for i in range(0, len(rules)):
-        df.iloc[i, 0] = rules[i]["antecedent"]
-        df.iloc[i, 1] = rules[i]["consequent"]
-        df.iloc[i, 2] = rules[i]["confidence"]
-        df.iloc[i, 3] = rules[i]["support"]
+    df = DataFrame(rules,
+                   index=[i for i in range(len(rules))],)
 
     return df
 
