@@ -127,15 +127,28 @@ def __apriori_gen(old_candidates: List[Tuple[str]], k: int) -> List[Tuple[str]]:
 
 
 def minimal_non_redundant_rules(closed_frequent_itemsets: DataFrame, min_conf: float = 0.5) -> DataFrame:
-    # Map from generators to closures
+    """Determines the set of minimal non redundant rules by first calculating the generic basis and then
+    the transitive reduction of the informative basis, all according to 'Mining minimal non-redundant 
+    association rules'.
+
+    Args:
+        closed_frequent_itemsets (DataFrame): All frequent closed itemsets and their generators as determined
+        by the AClose algorithm.
+        min_conf (float, optional): Minimum confidence threshold. Defaults to 0.5.
+
+    Returns:
+        DataFrame: Minimal non-redundant association rules with confidence, support, antecedents and consequents.
+    """
     gen_to_cls = {
-        tuple(itemset[1]["generators"]): tuple(tuple(itemset[1]["closed_itemsets"]), itemset[1]["support"])
+        tuple(itemset[1]["generators"]): (tuple(itemset[1]["closed_itemsets"]), itemset[1]["support"])
         for itemset in closed_frequent_itemsets.iterrows()
     }
 
     generating_set = generic_basis(gen_to_cls)
-    generating_set.update(
+    generating_set.extend(
         transitive_reduction_of_informative_basis(gen_to_cls, min_conf))
+
+    return DataFrame(generating_set, index=[i for i in range(len(generating_set))])
 
 
 def generic_basis(generators: Dict[Tuple[str], Tuple[Tuple[str], float]]) -> List[Dict[str, Any]]:
