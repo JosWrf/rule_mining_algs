@@ -134,11 +134,13 @@ def minimal_non_redundant_rules(closed_frequent_itemsets: DataFrame, min_conf: f
     }
 
     generating_set = generic_basis(gen_to_cls)
+    generating_set.update(
+        transitive_reduction_of_informative_basis(gen_to_cls, min_conf))
 
 
 def generic_basis(generators: Dict[Tuple[str], Tuple[Tuple[str], float]]) -> List[Dict[str, Any]]:
     """Calculates the generic basis for exact valid association rules as described in 
-    in Mining minimal non-redundant association rules.
+    in 'Mining minimal non-redundant association rules'.
 
     Args:
         generators (Dict[Tuple[str], Tuple[Tuple[str], float]]): Mapping from generators to their closures and support
@@ -149,8 +151,7 @@ def generic_basis(generators: Dict[Tuple[str], Tuple[Tuple[str], float]]) -> Lis
     """
     gb = []
     for generator, cls_info in generators.items():
-        closure = cls_info[0]
-        supp = cls_info[1]
+        closure, supp = cls_info
         if closure != generator:
             consequent = tuple(sorted(set(closure) - set(generator)))
             row_entry = {"antecedents": generator,
@@ -160,5 +161,55 @@ def generic_basis(generators: Dict[Tuple[str], Tuple[Tuple[str], float]]) -> Lis
     return gb
 
 
-def transitive_reduction_of_informative_basis():
-    pass
+def transitive_reduction_of_informative_basis(generators: Dict[Tuple[str], Tuple[Tuple[str], float]], min_conf: float) -> List[Dict[str, Any]]:
+    """Calculates the transitive reduction of the informative basis for approximate association rules according
+    to the paper 'Mining minimal non-redundant association rules'.
+
+    Args:
+        generators (Dict[Tuple[str], Tuple[Tuple[str], float]]): Mapping from generators to their closures and support.
+        min_conf (float): Minimum confidence threshold.
+
+    Returns:
+        List[Dict[str, Any]]: List of dictionaries containing the antecedent and consequent as tuples, aswell as the 
+        support and confidence for each rule.
+    """
+    # Calculate the size of the longest maximal frequent closed itemset
+    # and partition the FCs based on their length
+    mu = 0
+    FC_j = {}
+    for cls, supp in generators.values():
+        size_cls = len(cls)
+        mu = max(size_cls, mu)
+        if FC_j.get(size_cls) != None:
+            FC_j[size_cls].update({cls: supp})
+        else:
+            FC_j[size_cls] = {cls: supp}
+
+    ib = []
+    for generator, cls_info in generators.items():
+        closure, gen_supp = cls_info
+        closure = set(closure)
+        successors = []
+        S = []  # Union of S_j
+
+        # Determine the set of all fc_s that may be rhs of a rule
+        for j in range(len(closure), mu+1):
+            s_j = {fci: supp for fci,
+                   supp in FC_j[j].items() if closure < set(fci)}
+            S.append(s_j)
+
+        for j in range(len(S)):
+            for fci in S[j]:
+                fci_set = set(fci)
+                # Check whether there's no real subset in succ_g
+                if all(not fci_set > s for s in successors):
+                    successors.append(fci_set)
+                    consequent = tuple(sorted(fci_set - set(generator)))
+                    support_fc = FC_j[len(closure)+j][fci]
+                    conf = support_fc / gen_supp
+
+                    if conf >= min_conf:
+                        ib.append({"antecedents": generator, "consequents": consequent,
+                                  "support": support_fc, "confidence": conf})
+
+    return ib
