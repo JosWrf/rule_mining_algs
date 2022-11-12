@@ -1,4 +1,4 @@
-from typing import Dict, Iterator, List, Tuple
+from typing import Any, Dict, Iterator, List, Tuple
 from pandas import DataFrame, Series
 
 
@@ -34,12 +34,14 @@ def generate_rules(frequent_itemsets: DataFrame, min_conf: float = 0.5) -> DataF
             m (int): The size of the elements contained in consequents.
 
         Yields:
-            Iterator[Dict[str, Tuple[Tuple[str], Tuple[str], float, float]]]: Rule[antecedent, consequent, confidence, support]
+            Iterator[Dict[str, Tuple[Tuple[str], Tuple[str], float, float]]
+                ]: Rule[antecedent, consequent, confidence, support]
         """
         new_consequents = []
         for consequent in consequents:
             support_rule = itemset["support"]
-            antecedent = tuple(sorted(set(itemset["itemsets"]) - set(consequent)))
+            antecedent = tuple(
+                sorted(set(itemset["itemsets"]) - set(consequent)))
             confidence = support_rule / support_mapping[antecedent]
             if confidence >= min_conf:
                 new_consequents.append(consequent)
@@ -117,8 +119,46 @@ def __apriori_gen(old_candidates: List[Tuple[str]], k: int) -> List[Tuple[str]]:
         candidate
         for candidate in candidates
         if all(
-            candidate[:i] + candidate[i + 1 :] in old_candidates
+            candidate[:i] + candidate[i + 1:] in old_candidates
             for i in range(len(candidate))
         )
     ]
     return cands
+
+
+def minimal_non_redundant_rules(closed_frequent_itemsets: DataFrame, min_conf: float = 0.5) -> DataFrame:
+    # Map from generators to closures
+    gen_to_cls = {
+        tuple(itemset[1]["generators"]): tuple(tuple(itemset[1]["closed_itemsets"]), itemset[1]["support"])
+        for itemset in closed_frequent_itemsets.iterrows()
+    }
+
+    generating_set = generic_basis(gen_to_cls)
+
+
+def generic_basis(generators: Dict[Tuple[str], Tuple[Tuple[str], float]]) -> List[Dict[str, Any]]:
+    """Calculates the generic basis for exact valid association rules as described in 
+    in Mining minimal non-redundant association rules.
+
+    Args:
+        generators (Dict[Tuple[str], Tuple[Tuple[str], float]]): Mapping from generators to their closures and support
+
+    Returns:
+        List[Dict[str, Any]]: List of dictionaries containing the antecedent and consequent as tuples, aswell as the 
+        support and confidence for each rule.
+    """
+    gb = []
+    for generator, cls_info in generators.items():
+        closure = cls_info[0]
+        supp = cls_info[1]
+        if closure != generator:
+            consequent = tuple(sorted(set(closure) - set(generator)))
+            row_entry = {"antecedents": generator,
+                         "consequents": consequent, "support": supp, "confidence": 1}
+            gb.append(row_entry)
+
+    return gb
+
+
+def transitive_reduction_of_informative_basis():
+    pass
