@@ -1,7 +1,8 @@
 # Code Repository for Assocation Rule Mining Algorithms
 
 In this repository different association rule mining algorithms will be implemented and tested against different datasets from several fields simulating various use cases. In the first step
-a framework of the different algorithm implementations is built, which might then be extended into a simple app, to compare the algorithms with different inputs and parameters.
+a framework of the different algorithm implementations is built.
+(Maybe this framework will be embedded in a dash app if there's any time left.)
 
 ## Different Algorithms thus far
 
@@ -9,21 +10,18 @@ a framework of the different algorithm implementations is built, which might the
 - Apriori
 - FP-Growth
 - AClose
+- Minimal Non-redundant rules
 
-## Ideas and open problems
+## Datasets
+- store_data.csv: [Store data](https://user.informatik.uni-goettingen.de/~sherbold/store_data.csv)
 
-```
-Decide what the input format will be (csv, .sqlite, .sql, .json, ...) ?
-Decide on the specific algorithms.
-Get data (spatial? , only transactional?, data with timestamps)
-Synthetic datasets as use case?
-```
+- agaricus-lepiota.data: [Mushroom dataset](https://archive.ics.uci.edu/ml/datasets/mushroom)
+
 
 ## TODO
 
 ```
 - Throw an exception in apriori/ais/aclose when items are not lexicographically sorted
-- Implement Closed/Max frequent Itemset Algorithms
 (- Implement Constraint-based Algorithms)
 - Implement Multilevel Algorithms
 - Implement Multidimensional Algorithms
