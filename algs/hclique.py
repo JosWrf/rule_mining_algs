@@ -23,7 +23,7 @@ def hclique(dataframe: DataFrame, hconf_threshold: float = 0.5, support_threshol
         DataFrame: All hyperclique patterns, satisfying min support and min h-confidence constraints, with 
         their support values.
     """
-    items = np.array(DataFrame.columns)
+    items = np.array(dataframe.columns)
     all_sets = get_frequent_1_itemsets(
         items, dataframe, support_threshold)
     frequent_items = {item[0]: support for item, support in all_sets.items()}
