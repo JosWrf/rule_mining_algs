@@ -30,10 +30,10 @@ def apriori(dataframe: DataFrame, support_threshold: float = 0.005) -> DataFrame
         hash_tree = HashTree()
 
         for candidate_set in _generate_itemsets_by_join(frequent_k_itemsets, k):
-            if __is_candidate(frequent_k_itemsets, candidate_set):
+            if _is_candidate(frequent_k_itemsets, candidate_set):
                 hash_tree.add_itemset(candidate_set)
 
-        __count_transactions(dataframe, hash_tree, k)
+        _count_transactions(dataframe, hash_tree, k)
 
         frequent_k_itemsets = hash_tree.get_frequent_itemsets(
             support_threshold, len(dataframe)
@@ -78,7 +78,7 @@ def _generate_itemsets_by_join(
                 yield old_itemsets[i] + (old_itemsets[j][k - 1],)
 
 
-def __is_candidate(old_itemsets: List[Tuple[str]], candidate_set: Tuple[str]) -> bool:
+def _is_candidate(old_itemsets: List[Tuple[str]], candidate_set: Tuple[str]) -> bool:
     """Checks whether there's any subset contained in the candidate_set, that isn't
     contained within the old_itemsets. If that is the case the candidate set can not
     be a frequent itemset and False is returned.
@@ -101,7 +101,7 @@ def __is_candidate(old_itemsets: List[Tuple[str]], candidate_set: Tuple[str]) ->
     return True
 
 
-def __count_transactions(transactions: DataFrame, tree: HashTree, k: int) -> None:
+def _count_transactions(transactions: DataFrame, tree: HashTree, k: int) -> None:
     """Iterates over all transactions and uses them to traverse the hash tree. If a
     leaf is encountered all itemsets at that leaf are compared against the transaction
     and their count is incremented by 1.
@@ -141,10 +141,10 @@ def a_close(dataframe: DataFrame, support_threshold: float = 0.005) -> DataFrame
         hash_tree = HashTree()
 
         for candidate_set in _generate_itemsets_by_join(current_generators, k):
-            if __is_candidate(current_generators, candidate_set):
+            if _is_candidate(current_generators, candidate_set):
                 hash_tree.add_itemset(candidate_set)
 
-        __count_transactions(dataframe, hash_tree, k)
+        _count_transactions(dataframe, hash_tree, k)
 
         current_generators = hash_tree.get_frequent_itemsets(
             support_threshold, len(dataframe)
