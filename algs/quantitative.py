@@ -56,15 +56,7 @@ def discretize_values(db: DataFrame, discretization: Dict[str, int]) -> Tuple[Di
             attribute_mappings[attribute] = {i: (ceil(y[i]), floor(y[i+1]))for i in range(len(y)-1)}
             db[attribute] = x.astype("int")
 
-    return attribute_mappings, df
-
-dic = [49,23,57,18,79]
-df = pd.DataFrame(dic,columns=["Nums"])
-df["vertebrates"] = ['Bird', 'Bird', 'Mammal', 'Fish', 'Amphibian']
-df["num"] = [12,45,67,1,45]
-x,y = discretize_values(df, discretization={"Nums": 3, "vertebrates": 0, "num": 0})
-print(x)
-print(y)
+    return attribute_mappings, db
 
 
 
