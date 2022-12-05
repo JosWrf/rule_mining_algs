@@ -1,6 +1,6 @@
 import pandas as pd
 
-from algs.quantitative import Item, discretize_values, find_frequent_items
+from algs.quantitative import Item, discretize_values, find_frequent_items, quantitative_itemsets
 
 class TestDiscretization:
 
@@ -43,3 +43,14 @@ class TestDiscretization:
 
         assert (Item("num_cars",0,0),) not in result # only one person w/o car
         assert (Item("num_cars",2,2),) in result # 2 persons with 2 cars
+
+    def test_quantitative_itemsets(self):
+        self._setup()
+        result = quantitative_itemsets(self.data, {"age":4, "married": 0, "num_cars":0}, minsupp=0.4, maxsupp=0.5)
+        assert (Item("age",2,3), Item("married",1,1)) in result # Age: 30..38, Married: Yes (paper)
+        assert (Item("age",0,0), Item("num_cars",1,1)) in result # Age: 23..26, NumCars: 1 (Support of 0.4)
+
+        # Check whether frequent items are returned
+        assert (Item("age",0,0),) in result 
+        assert (Item("married",0,0),) in result
+        assert (Item("num_cars",1,1),) in result 
