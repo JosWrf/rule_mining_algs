@@ -67,8 +67,10 @@ def discretize_values(
             )
         else:
             x, y = partition_intervals(ival, attribute, db)
+            int_val = db[attribute].dtype == int
             attribute_mappings[attribute] = {
-                i: (ceil(y[i]), floor(y[i + 1])) for i in range(len(y) - 1)
+                i: (ceil(y[i]) if int_val else y[i], floor(y[i + 1]) if int_val else y[i + 1])
+                for i in range(len(y) - 1)
             }
             db[attribute] = x.astype("int")
 
@@ -282,8 +284,8 @@ def quantitative_itemsets(
     db: DataFrame,
     discretization: Dict[str, int],
     minsupp: float = 0.05,
-    maxsupp: float = 0.1,
-):
+    maxsupp: float = 0.1
+) -> DataFrame:
     mappings, encoded_db = discretize_values(db.copy(deep=True), discretization)
     frequent_items = find_frequent_items(
         mappings, encoded_db, discretization, minsupp, maxsupp
@@ -293,7 +295,6 @@ def quantitative_itemsets(
 
     while len(frequent_k_itemsets) != 0:
         candidates = {}
-        print(k)
         for candidate_set in _generate_itemsets_by_join(frequent_k_itemsets, k):
             if _is_candidate(frequent_k_itemsets, candidate_set):
                 candidates[candidate_set] = 0
@@ -303,4 +304,20 @@ def quantitative_itemsets(
         frequent_items.update(frequent_k_itemsets)
         k += 1
 
-    return frequent_items
+    # Map resulting itemsets back to their (interval) values
+    itemsets = []
+    for itemset, support in frequent_items.items():
+        items  = []
+        for item in itemset:
+            vals = mappings[item.name]
+            lower = vals[item.lower]
+            upper = vals[item.upper]
+            if discretization[item.name] == 0:
+                assert lower == upper
+                items.append(f"{item.name} = {lower}")
+            else:
+                items.append(f"{item.name} = {lower[0]}..{upper[1]}")
+        itemsets.append({"itemsets": tuple(items), "support": support / len(db)})
+
+    df = pd.DataFrame(itemsets)
+    return df

@@ -47,10 +47,10 @@ class TestDiscretization:
     def test_quantitative_itemsets(self):
         self._setup()
         result = quantitative_itemsets(self.data, {"age":4, "married": 0, "num_cars":0}, minsupp=0.4, maxsupp=0.5)
-        assert (Item("age",2,3), Item("married",1,1)) in result # Age: 30..38, Married: Yes (paper)
-        assert (Item("age",0,0), Item("num_cars",1,1)) in result # Age: 23..26, NumCars: 1 (Support of 0.4)
+        assert ('age = 31..38', 'married = yes') in list(result["itemsets"]) # As in the paper
+        assert ('age = 23..26', 'num_cars = 1') in list(result["itemsets"]) # Has min supp in the table
 
         # Check whether frequent items are returned
-        assert (Item("age",0,0),) in result 
-        assert (Item("married",0,0),) in result
-        assert (Item("num_cars",1,1),) in result 
+        assert ('age = 23..26',) in list(result["itemsets"]) 
+        assert ('married = no',) in list(result["itemsets"]) 
+        assert ('num_cars = 2',) in list(result["itemsets"]) 
