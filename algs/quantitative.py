@@ -69,7 +69,10 @@ def discretize_values(
             x, y = partition_intervals(ival, attribute, db)
             int_val = db[attribute].dtype == int
             attribute_mappings[attribute] = {
-                i: (ceil(y[i]) if int_val else y[i], floor(y[i + 1]) if int_val else y[i + 1])
+                i: (
+                    ceil(y[i]) if int_val else y[i],
+                    floor(y[i + 1]) if int_val else y[i + 1],
+                )
                 for i in range(len(y) - 1)
             }
             db[attribute] = x.astype("int")
@@ -280,16 +283,45 @@ def _is_candidate(
     return True
 
 
+def _prune_by_r_interest(
+    frequent_items: Dict[Tuple[Item], int],
+    discretizations: Dict[str, int],
+    R: float,
+    n: int,
+) -> Dict[Tuple[Item], int]:
+    """Prunes all quantitative attributes with support/n > 1/R (Lemma 5)
+
+    Args:
+        frequent_items (Dict[Tuple[Item], int]): Frequent items
+        discretizations (Dict[str, int]): Name of Attributes to num intervals
+        R (float): R-Interest
+        n (int): Number of entries in the db
+
+    Returns:
+        Dict[Tuple[Item], int]: All items whose fractional support does not exceed 1/R
+    """
+    if R == 0:
+        return frequent_items
+    return {
+        item: supp
+        for item, supp in frequent_items.items()
+        if discretizations[item[0].name] == 0 or supp / n <= 1 / R
+    }
+
+
 def quantitative_itemsets(
     db: DataFrame,
     discretization: Dict[str, int],
     minsupp: float = 0.05,
-    maxsupp: float = 0.1
+    maxsupp: float = 0.1,
+    R: float = 0.0,
 ) -> DataFrame:
+    #TODO: Determine the r-interesting itemsets
     mappings, encoded_db = discretize_values(db.copy(deep=True), discretization)
     frequent_items = find_frequent_items(
         mappings, encoded_db, discretization, minsupp, maxsupp
     )
+    frequent_items = _prune_by_r_interest(frequent_items, discretization, R, len(db))
     frequent_k_itemsets = frequent_items.copy()
     k = 1
 
@@ -307,7 +339,7 @@ def quantitative_itemsets(
     # Map resulting itemsets back to their (interval) values
     itemsets = []
     for itemset, support in frequent_items.items():
-        items  = []
+        items = []
         for item in itemset:
             vals = mappings[item.name]
             lower = vals[item.lower]
