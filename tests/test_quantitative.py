@@ -1,6 +1,6 @@
 import pandas as pd
 
-from algs.quantitative import Item, discretize_values, find_frequent_items, quantitative_itemsets
+from algs.quantitative import Item, _get_subintervals, discretize_values, find_frequent_items, get_generalizations_specializations, quantitative_itemsets
 
 class TestDiscretization:
 
@@ -54,3 +54,28 @@ class TestDiscretization:
         assert ('age = 23..26',) in list(result["itemsets"]) 
         assert ('married = no',) in list(result["itemsets"]) 
         assert ('num_cars = 2',) in list(result["itemsets"]) 
+
+    def test_get_generalizations_specializations(self):
+        frequent_itemsets = {(Item("a",0,2),): 2, (Item("a",1,2),): 1, (Item("a",1,1),):1}
+        result = get_generalizations_specializations(frequent_itemsets, (Item("a",0,2),))
+        assert len(result[1]) == 0 # no generalizations of [0,2]
+        assert {(Item("a",1,2),): 1, (Item("a",1,1),):1} == result[0] # [1,2] and [1,1] are both specializations of [0,2]
+
+        result = get_generalizations_specializations(frequent_itemsets, (Item("a",1,2),))
+        assert {(Item("a", 0, 2),): 2} == result[1] # [0,2] generalizes [1,2]
+        assert {(Item("a", 1, 1),): 1} == result[0] # [0,2] specializes [1,2]
+        
+        result = get_generalizations_specializations(frequent_itemsets, (Item("a",1,1),))
+        assert len(result[0]) == 0 # no specializations of [1,1]
+        assert {(Item("a",1,2),): 1, (Item("a",0,2),):2} == result[1] # [1,1] included in [0,2] and [1,2]
+
+    def test_get_subintervals(self):
+        self._setup()
+        _, db = discretize_values(self.data.copy(deep=True), {"age":4})
+        itemset = (Item("age",0,2),)
+        specializations = {(Item("age",1,2),): 2, (Item("age",1,1),):1}
+        result = _get_subintervals(db, specializations, itemset)
+
+        assert (Item("age", 0, 1),) in result[0] # [0,2] - [1,2] = [0,1]
+        assert {(Item("age", 0, 1),): 3} == result[1] # 3 of 5 persons in age[0,1]
+        assert (Item("age", 1, 2)) not in result[0] # [0,2] - [1,1] = [1,2], [0,1] so we drop it

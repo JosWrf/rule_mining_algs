@@ -376,6 +376,18 @@ def get_generalizations_specializations(
 def _get_subintervals(
     db: DataFrame, specializations: Dict[Tuple[Item], int], itemset: Tuple[int]
 ) -> Tuple[Set[Tuple[Item]], Dict[Tuple[Item], int]]:
+    """Calculates the difference of an itemset to all its specializations.
+
+    Args:
+        db (DataFrame): Transformed Database
+        specializations (Dict[Tuple[Item], int]): All specializations of the given itemset
+        itemset (Tuple[int]): Itemset to substract a specialization from
+
+    Returns:
+        Tuple[Set[Tuple[Item]], Dict[Tuple[Item], int]]: Itemsets generated from the difference,
+        all individual items that were generated from the difference and their support aswell as 
+        the itemsets themselves. 
+    """
     new_itemsets = set()  # Holds X-X'
     new_items = {}  # Holds the items that are created by X-X'
 
@@ -410,6 +422,21 @@ def _is_specialization_interesting(
     gen_supp: float,
     n: int,
 ) -> bool:
+    """Determine whether the difference (X-X') from the itemset to any of its specializations
+    is r-interesting wrt. the generalization of the itemset. 
+
+    Args:
+        specializations (Set[Tuple[Item]]): All itemsets of the form: X-X'
+        generalization (Tuple[Item]): The generalization of the itemset
+        new_items (Dict[Tuple[Item], int]): Items/Itemsets from (X-X') with support information
+        frequent_itemsets (Dict[Tuple[Item], int]): All mined frequent itemsets
+        R (float): Interest level
+        gen_supp (float): Support for the generalization
+        n (int): Number of transactions in the database
+
+    Returns:
+        bool: False if there's any specialization of X' st. X-X' is not r-interesting.
+    """
     if len(specializations) == 0:
         return True
 
@@ -429,6 +456,17 @@ def _is_specialization_interesting(
 def remove_r_uninteresting_itemsets(
     db: DataFrame, frequent_itemsets: Dict[Tuple[Item], int], R: float
 ) -> Dict[Tuple[Item], int]:
+    """Uses the definition of R-interestingness of itemsets in the context of 
+    quantitative association rules to prune itemsets, that do not fullfill it.
+
+    Args:
+        db (DataFrame): Transformed Database
+        frequent_itemsets (Dict[Tuple[Item], int]): All mined frequent itemsets
+        R (float): Interest Level
+
+    Returns:
+        Dict[Tuple[Item], int]: Frequent and R-interesting itemsets. 
+    """
     def _is_r_interesting(generalization: Tuple[Item], itemset: Tuple[Item]) -> bool:
         """Indicates whether the support of the itemset is r times the expected support
         given its generalization.
