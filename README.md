@@ -9,8 +9,10 @@ a framework of the different algorithm implementations is built.
 - AIS
 - Apriori
 - FP-Growth
+- Quantitative Association Rules
 - AClose
 - Minimal Non-redundant rules
+- Rule Generation for apriori-like Algorihtms
 
 ## Datasets
 - store_data.csv: [Store data](https://user.informatik.uni-goettingen.de/~sherbold/store_data.csv)
@@ -21,9 +23,7 @@ a framework of the different algorithm implementations is built.
 ## TODO
 
 ```
-- Throw an exception in apriori/ais/aclose when items are not lexicographically sorted
-(- Implement Constraint-based Algorithms)
 - Implement Multilevel Algorithms
-- Implement Multidimensional Algorithms
+- Implement Static Discretization
 - Implement ARM based Classification Algorithms
 ```
