@@ -1,3 +1,4 @@
+import math
 from typing import Dict, List, Tuple
 import numpy as np
 
@@ -40,3 +41,23 @@ def get_frequent_1_itemsets(
 
     return frequent_1_item_sets
 
+def lift(supp_antecedent: float, supp_consequent: float, supp_union: float) -> float:
+    return supp_union / (supp_antecedent * supp_consequent)
+
+def cosine(supp_antecedent: float, supp_consequent: float, supp_union: float) -> float:
+    return supp_union / math.sqrt(supp_antecedent * supp_consequent) 
+
+def independent_cosine(supp_antecedent: float, supp_consequent: float) -> float:
+    return math.sqrt(supp_consequent * supp_antecedent)
+
+def imbalance_ratio(supp_antecedent: float, supp_consequent: float, supp_union: float) -> float:
+    return abs(supp_antecedent - supp_consequent) / (supp_antecedent + supp_consequent - supp_union)
+
+def kulczynski(supp_antecedent: float, supp_consequent: float, supp_union: float) -> float:
+    return 0.5*(confidence(supp_antecedent, supp_union) + confidence(supp_consequent, supp_union))
+
+def confidence(supp_antecedent: float, supp_union: float) -> float:
+    return supp_union / supp_antecedent
+
+def conviction(supp_antecedent: float, supp_consequent: float, supp_union: float) -> float:
+    return (1-supp_consequent) / (1-confidence(supp_antecedent, supp_union))

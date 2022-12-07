@@ -1,8 +1,17 @@
 from typing import Any, Dict, Iterator, List, Tuple
 from pandas import DataFrame, Series
 
+from algs.util import (
+    confidence,
+    conviction,
+    cosine,
+    imbalance_ratio,
+    independent_cosine,
+    kulczynski,
+    lift,
+)
 
-# TODO: Allow for more metrics and their parameters - maybe as kwargs dict
+
 def generate_rules(frequent_itemsets: DataFrame, min_conf: float = 0.5) -> DataFrame:
     """Generates all rules that satisfy the minimum confidence constraint for all frequent itemsets.
     This algorithm is described in 'Fast Algorithms for Mining Association Rules'
@@ -23,7 +32,7 @@ def generate_rules(frequent_itemsets: DataFrame, min_conf: float = 0.5) -> DataF
 
     def __ap_genrules(
         itemset: Series, consequents: List[Tuple[str]], m: int
-    ) -> Iterator[Dict[str, Tuple[Tuple[str], Tuple[str], float, float]]]:
+    ) -> Iterator[Dict[str, Any]]:
         """Checks the minimum confidence constraint for all rules that can be built with the consequents
         in the consequents argument and yields them. The consequences are extended as long as the size is smaller than
         the size of the corresponding itemset and the frontier is not empty.
@@ -34,22 +43,49 @@ def generate_rules(frequent_itemsets: DataFrame, min_conf: float = 0.5) -> DataF
             m (int): The size of the elements contained in consequents.
 
         Yields:
-            Iterator[Dict[str, Tuple[Tuple[str], Tuple[str], float, float]]
-                ]: Rule[antecedent, consequent, confidence, support]
+            Iterator[Dict[str, Any]]
+                ]: Rule antecedents and consequents with objective measures
         """
         new_consequents = []
         for consequent in consequents:
             support_rule = itemset["support"]
-            antecedent = tuple(
-                sorted(set(itemset["itemsets"]) - set(consequent)))
-            confidence = support_rule / support_mapping[antecedent]
-            if confidence >= min_conf:
+            antecedent = tuple(sorted(set(itemset["itemsets"]) - set(consequent)))
+            conf = confidence(support_mapping[antecedent], support_rule)
+            if conf >= min_conf:
                 new_consequents.append(consequent)
                 yield {
                     "antecedent": antecedent,
                     "consequent": consequent,
-                    "confidence": confidence,
                     "support": support_rule,
+                    "confidence": conf,
+                    "cosine": cosine(
+                        support_mapping[antecedent],
+                        support_mapping[consequent],
+                        support_rule,
+                    ),
+                    "idependent_cosine": independent_cosine(
+                        support_mapping[antecedent], support_mapping[consequent]
+                    ),
+                    "lift": lift(
+                        support_mapping[antecedent],
+                        support_mapping[consequent],
+                        support_rule,
+                    ),
+                    "conviction": conviction(
+                        support_mapping[antecedent],
+                        support_mapping[consequent],
+                        support_rule,
+                    ),
+                    "imbalance_ratio": imbalance_ratio(
+                        support_mapping[antecedent],
+                        support_mapping[consequent],
+                        support_rule,
+                    ),
+                    "kulczynksi": kulczynski(
+                        support_mapping[antecedent],
+                        support_mapping[consequent],
+                        support_rule,
+                    ),
                 }
 
         if len(itemset["itemsets"]) > m + 1:
@@ -65,8 +101,10 @@ def generate_rules(frequent_itemsets: DataFrame, min_conf: float = 0.5) -> DataF
             for rule in __ap_genrules(itemsets[1], consequents, 1):
                 rules.append(rule)
 
-    df = DataFrame(rules,
-                   index=[i for i in range(len(rules))],)
+    df = DataFrame(
+        rules,
+        index=[i for i in range(len(rules))],
+    )
 
     return df
 
@@ -111,16 +149,18 @@ def __apriori_gen(old_candidates: List[Tuple[str]], k: int) -> List[Tuple[str]]:
         candidate
         for candidate in candidates
         if all(
-            candidate[:i] + candidate[i + 1:] in old_candidates
+            candidate[:i] + candidate[i + 1 :] in old_candidates
             for i in range(len(candidate))
         )
     ]
     return cands
 
 
-def minimal_non_redundant_rules(closed_frequent_itemsets: DataFrame, min_conf: float = 0.5) -> DataFrame:
+def minimal_non_redundant_rules(
+    closed_frequent_itemsets: DataFrame, min_conf: float = 0.5
+) -> DataFrame:
     """Determines the set of minimal non redundant rules by first calculating the generic basis and then
-    the transitive reduction of the informative basis, all according to 'Mining minimal non-redundant 
+    the transitive reduction of the informative basis, all according to 'Mining minimal non-redundant
     association rules'.
 
     Args:
@@ -132,26 +172,32 @@ def minimal_non_redundant_rules(closed_frequent_itemsets: DataFrame, min_conf: f
         DataFrame: Minimal non-redundant association rules with confidence, support, antecedents and consequents.
     """
     gen_to_cls = {
-        tuple(itemset[1]["generators"]): (tuple(itemset[1]["closed_itemsets"]), itemset[1]["support"])
+        tuple(itemset[1]["generators"]): (
+            tuple(itemset[1]["closed_itemsets"]),
+            itemset[1]["support"],
+        )
         for itemset in closed_frequent_itemsets.iterrows()
     }
 
     generating_set = generic_basis(gen_to_cls)
     generating_set.extend(
-        transitive_reduction_of_informative_basis(gen_to_cls, min_conf))
+        transitive_reduction_of_informative_basis(gen_to_cls, min_conf)
+    )
 
     return DataFrame(generating_set, index=[i for i in range(len(generating_set))])
 
 
-def generic_basis(generators: Dict[Tuple[str], Tuple[Tuple[str], float]]) -> List[Dict[str, Any]]:
-    """Calculates the generic basis for exact valid association rules as described in 
+def generic_basis(
+    generators: Dict[Tuple[str], Tuple[Tuple[str], float]]
+) -> List[Dict[str, Any]]:
+    """Calculates the generic basis for exact valid association rules as described in
     in 'Mining minimal non-redundant association rules'.
 
     Args:
         generators (Dict[Tuple[str], Tuple[Tuple[str], float]]): Mapping from generators to their closures and support
 
     Returns:
-        List[Dict[str, Any]]: List of dictionaries containing the antecedent and consequent as tuples, aswell as the 
+        List[Dict[str, Any]]: List of dictionaries containing the antecedent and consequent as tuples, aswell as the
         support and confidence for each rule.
     """
     gb = []
@@ -159,14 +205,20 @@ def generic_basis(generators: Dict[Tuple[str], Tuple[Tuple[str], float]]) -> Lis
         closure, supp = cls_info
         if closure != generator:
             consequent = tuple(sorted(set(closure) - set(generator)))
-            row_entry = {"antecedents": generator,
-                         "consequents": consequent, "support": supp, "confidence": 1}
+            row_entry = {
+                "antecedents": generator,
+                "consequents": consequent,
+                "support": supp,
+                "confidence": 1,
+            }
             gb.append(row_entry)
 
     return gb
 
 
-def transitive_reduction_of_informative_basis(generators: Dict[Tuple[str], Tuple[Tuple[str], float]], min_conf: float) -> List[Dict[str, Any]]:
+def transitive_reduction_of_informative_basis(
+    generators: Dict[Tuple[str], Tuple[Tuple[str], float]], min_conf: float
+) -> List[Dict[str, Any]]:
     """Calculates the transitive reduction of the informative basis for approximate association rules according
     to the paper 'Mining minimal non-redundant association rules'.
 
@@ -175,7 +227,7 @@ def transitive_reduction_of_informative_basis(generators: Dict[Tuple[str], Tuple
         min_conf (float): Minimum confidence threshold.
 
     Returns:
-        List[Dict[str, Any]]: List of dictionaries containing the antecedent and consequent as tuples, aswell as the 
+        List[Dict[str, Any]]: List of dictionaries containing the antecedent and consequent as tuples, aswell as the
         support and confidence for each rule.
     """
     # Calculate the size of the longest maximal frequent closed itemset
@@ -198,9 +250,8 @@ def transitive_reduction_of_informative_basis(generators: Dict[Tuple[str], Tuple
         S = []  # Union of S_j
 
         # Determine the set of all fc_s that may be rhs of a rule
-        for j in range(len(closure), mu+1):
-            s_j = {fci: supp for fci,
-                   supp in FC_j[j].items() if closure < set(fci)}
+        for j in range(len(closure), mu + 1):
+            s_j = {fci: supp for fci, supp in FC_j[j].items() if closure < set(fci)}
             S.append(s_j)
 
         for j in range(len(S)):
@@ -210,11 +261,17 @@ def transitive_reduction_of_informative_basis(generators: Dict[Tuple[str], Tuple
                 if all(not fci_set > s for s in successors):
                     successors.append(fci_set)
                     consequent = tuple(sorted(fci_set - set(generator)))
-                    support_fc = FC_j[len(closure)+j][fci]
+                    support_fc = FC_j[len(closure) + j][fci]
                     conf = support_fc / gen_supp
 
                     if conf >= min_conf:
-                        ib.append({"antecedents": generator, "consequents": consequent,
-                                  "support": support_fc, "confidence": conf})
+                        ib.append(
+                            {
+                                "antecedents": generator,
+                                "consequents": consequent,
+                                "support": support_fc,
+                                "confidence": conf,
+                            }
+                        )
 
     return ib
