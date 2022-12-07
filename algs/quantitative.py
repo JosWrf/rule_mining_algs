@@ -489,7 +489,7 @@ def remove_r_uninteresting_itemsets(
 
     n = len(db)
     r_interesting_itemsets = {}
-    for item in frequent_itemsets.keys():
+    for item, support in frequent_itemsets.items():
         partial_order = get_generalizations_specializations(frequent_itemsets, item)
 
         interesting = True
@@ -502,7 +502,7 @@ def remove_r_uninteresting_itemsets(
                 break
 
         if interesting:
-            r_interesting_itemsets[item] = supp
+            r_interesting_itemsets[item] = support
 
     return r_interesting_itemsets
 
