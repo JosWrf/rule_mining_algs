@@ -49,7 +49,7 @@ def generate_rules(frequent_itemsets: DataFrame, min_conf: float = 0.5) -> DataF
         new_consequents = []
         for consequent in consequents:
             support_rule = itemset["support"]
-            antecedent = tuple(sorted(set(itemset["itemsets"]) - set(consequent)))
+            antecedent = tuple([item for item in itemset["itemsets"] if item not in consequent])
             conf = confidence(support_mapping[antecedent], support_rule)
             if conf >= min_conf:
                 new_consequents.append(consequent)
