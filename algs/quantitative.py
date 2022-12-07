@@ -1,5 +1,5 @@
 from math import ceil, floor
-from typing import Any, Dict, Iterator, Tuple
+from typing import Any, Dict, Iterator, Set, Tuple
 import pandas as pd
 from pandas import DataFrame
 
@@ -99,6 +99,26 @@ class Item:
             and self.lower == __o.lower
             and self.upper == __o.upper
         )
+
+    def is_generalization(self, other: object) -> bool:
+        return other.lower >= self.lower and other.upper <= self.upper
+
+    def is_specialization(self, other: object) -> bool:
+        return other.lower <= self.lower and other.upper >= self.upper
+
+    def __sub__(self, __o: object) -> object:
+        if (
+            __o.lower > self.lower and __o.upper < self.upper
+        ):  # Inclusion relation would cause a split in 2 non-adjecent subintervals
+            return None
+        if (
+            __o.lower == self.lower and __o.upper == self.upper
+        ):  # Same interval -> categorical
+            return __o
+        if self.lower == __o.lower:  # [5,8] - [5,6] = [7,8]
+            return Item(self.name, __o.lower + 1, self.upper)
+        else:  # [5,8] - [7,8] = [5,6]
+            return Item(self.name, self.lower, __o.upper - 1)
 
     def __hash__(self) -> int:
         return hash(self.name)
@@ -309,6 +329,146 @@ def _prune_by_r_interest(
     }
 
 
+def get_generalizations_specializations(
+    frequent_itemsets: Dict[Tuple[Item], int], itemset: Tuple[Item]
+) -> Dict[int, Dict[Tuple[Item], int]]:
+    """Determines all generalizations and specializations of the given itemset.
+
+    Args:
+        frequent_itemsets (Dict[Tuple[Item], int]): All frequent itemsets.
+        itemset (Tuple[Item]): Itemset, whose generalizations and specializations are to be determined.
+
+    Returns:
+        Dict[int, Dict[Tuple[Item], int]]: The key 0 maps to all specializations of the itemset and the key 1
+        gives all generalizations of the itemset.
+    """
+    result = {0: {}, 1: {}}
+    for items, supp in frequent_itemsets.items():
+        if len(items) != len(itemset):  # Attributes(X) != Attributes(X')
+            continue
+        found_spec = 0
+        found_gen = 0
+        attrs = True
+
+        for i in range(len(items)):
+            if items[i].name != itemset[i].name:  # Attributes(X) != Attributes(X')
+                attrs = False
+                break
+            if (
+                items[i] == itemset[i]
+            ):  # Having the same boundaries, implies a categorical attribute
+                continue
+            elif itemset[i].is_generalization(items[i]):
+                found_spec = 1
+            elif itemset[i].is_specialization(items[i]):
+                found_gen = 1
+
+        if found_gen + found_spec != 1 or not attrs:
+            continue
+        elif found_spec:
+            result[0][items] = supp
+        else:
+            result[1][items] = supp
+
+    return result
+
+
+def _get_subintervals(
+    db: DataFrame, specializations: Dict[Tuple[Item], int], itemset: Tuple[int]
+) -> Tuple[Set[Tuple[Item]], Dict[Tuple[Item], int]]:
+    new_itemsets = set()  # Holds X-X'
+    new_items = {}  # Holds the items that are created by X-X'
+
+    for items in specializations.keys():
+        new_itemset = []
+        for i in range(len(items)):
+            sub_interval = itemset[i] - items[i]
+            if sub_interval is None:
+                break
+            else:
+                new_items.update(
+                    {(sub_interval,): 0}
+                )  # We need the support for individual elements
+                new_itemset.append(sub_interval)
+
+        if len(new_itemset) == len(itemset):
+            new_itemsets.add(tuple(new_itemset))
+            new_items.update(
+                {tuple(new_itemset): 0}
+            )  # We need the support for all X-X' aswell
+
+    new_items = count_support(db, new_items, 0.0, False)
+    return new_itemsets, new_items
+
+
+def _is_specialization_interesting(
+    specializations: Set[Tuple[Item]],
+    generalization: Tuple[Item],
+    new_items: Dict[Tuple[Item], int],
+    frequent_itemsets: Dict[Tuple[Item], int],
+    R: float,
+    gen_supp: float,
+    n: int,
+) -> bool:
+    if len(specializations) == 0:
+        return True
+
+    for specialization in specializations:
+        exp_supp = gen_supp
+        for i in range(len(specialization)):
+            exp_supp *= (
+                new_items[(specialization[i],)]
+                / frequent_itemsets[(generalization[i],)]
+            )
+        if new_items[specialization] / n / exp_supp < R:
+            return False
+
+    return True
+
+
+def remove_r_uninteresting_itemsets(
+    db: DataFrame, frequent_itemsets: Dict[Tuple[Item], int], R: float
+) -> Dict[Tuple[Item], int]:
+    def _is_r_interesting(generalization: Tuple[Item], itemset: Tuple[Item]) -> bool:
+        """Indicates whether the support of the itemset is r times the expected support
+        given its generalization.
+
+        Args:
+            generalization (Tuple[Item]): Generalization of the itemset
+            itemset (Tuple[Item]): Potentially r-interesting itemset
+
+        Returns:
+            bool: True if the itemset is r-interesting wrt. to its generalization else False
+        """
+        n = len(db)
+        exp_supp = frequent_itemsets[generalization] / n
+        for i in range(len(generalization)):
+            exp_supp *= (
+                frequent_itemsets[(itemset[i],)]
+                / frequent_itemsets[(generalization[i],)]
+            )
+        return (frequent_itemsets[itemset] / n / exp_supp) >= R
+
+    n = len(db)
+    r_interesting_itemsets = {}
+    for item in frequent_itemsets.keys():
+        partial_order = get_generalizations_specializations(frequent_itemsets, item)
+
+        interesting = True
+        sub_intervals, sub_items = _get_subintervals(db, partial_order[0], item)
+        for gen, supp in partial_order[1].items():
+            if not _is_r_interesting(gen, item) or not _is_specialization_interesting(
+                sub_intervals, gen, sub_items, frequent_itemsets, R, supp / n, n
+            ):
+                interesting = False
+                break
+
+        if interesting:
+            r_interesting_itemsets[item] = supp
+
+    return r_interesting_itemsets
+
+
 def quantitative_itemsets(
     db: DataFrame,
     discretization: Dict[str, int],
@@ -316,7 +476,6 @@ def quantitative_itemsets(
     maxsupp: float = 0.1,
     R: float = 0.0,
 ) -> DataFrame:
-    #TODO: Determine the r-interesting itemsets
     mappings, encoded_db = discretize_values(db.copy(deep=True), discretization)
     frequent_items = find_frequent_items(
         mappings, encoded_db, discretization, minsupp, maxsupp
@@ -335,6 +494,9 @@ def quantitative_itemsets(
 
         frequent_items.update(frequent_k_itemsets)
         k += 1
+
+    if R != 0:
+        frequent_items = remove_r_uninteresting_itemsets(encoded_db, frequent_items, R)
 
     # Map resulting itemsets back to their (interval) values
     itemsets = []
