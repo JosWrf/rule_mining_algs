@@ -49,7 +49,9 @@ def generate_rules(frequent_itemsets: DataFrame, min_conf: float = 0.5) -> DataF
         new_consequents = []
         for consequent in consequents:
             support_rule = itemset["support"]
-            antecedent = tuple([item for item in itemset["itemsets"] if item not in consequent])
+            antecedent = tuple(
+                [item for item in itemset["itemsets"] if item not in consequent]
+            )
             conf = confidence(support_mapping[antecedent], support_rule)
             if conf >= min_conf:
                 new_consequents.append(consequent)
@@ -273,5 +275,20 @@ def transitive_reduction_of_informative_basis(
                                 "confidence": conf,
                             }
                         )
-
     return ib
+
+
+def get_classification_rules(rules: DataFrame, label: str) -> DataFrame:
+    """Post-Processing of rules, to only filter out rules, that have the 
+    classification label as the only consquent of the rule.
+
+    Args:
+        rules (DataFrame): Mined rules, superset of classification rules
+        label (str): Target attribute
+
+    Returns:
+        DataFrame: All rules with only the label as consequent.
+    """
+    return rules.loc[
+        rules["consequent"].apply(lambda x: len(x) == 1 and x[0].startswith(label))
+    ]
