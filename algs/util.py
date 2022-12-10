@@ -60,4 +60,7 @@ def confidence(supp_antecedent: float, supp_union: float) -> float:
     return supp_union / supp_antecedent
 
 def conviction(supp_antecedent: float, supp_consequent: float, supp_union: float) -> float:
-    return (1-supp_consequent) / (1-confidence(supp_antecedent, supp_union))
+    denominator = (1-confidence(supp_antecedent, supp_union))
+    if denominator == 0:
+        return float("inf")
+    return (1-supp_consequent) / denominator
