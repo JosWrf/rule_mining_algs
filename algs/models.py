@@ -10,6 +10,12 @@ import pandas as pd
 class NoMiningAlgorithmException(Exception):
     pass
 
+class WrongArgumentException(Exception):
+    pass
+
+class NotAValidCallableException(Exception):
+    pass
+
 
 class Model:
     """Sets up a pipeline to transform the data a set of association rules.
@@ -46,6 +52,12 @@ class Model:
             args (Dict[str, Any]): Dictionary mapping from argument names to values that 
             will be passed to the arguments having the same name. 
         """
+        if self.args.get(func) == None:
+            raise NotAValidCallableException("func arg must be a function that's been set in the constructor.")
+        names = func.__code__.co_varnames[:func.__code__.co_argcount]
+        for name in args.keys():
+            if name not in names:
+                raise WrongArgumentException(f"{func.__name__} does not have an argument named {name}")
         self.args[func] = args
 
     def run(self, data: pd.DataFrame) -> pd.DataFrame:
