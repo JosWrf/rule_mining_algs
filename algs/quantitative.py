@@ -2,6 +2,7 @@ from math import ceil, floor
 from typing import Any, Dict, Iterator, Set, Tuple
 import pandas as pd
 from pandas import DataFrame
+from mlxtend.preprocessing import TransactionEncoder
 
 
 def partition_intervals(num_intervals: int, attribute: str, db: DataFrame) -> pd.Series:
@@ -78,6 +79,52 @@ def discretize_values(
             db[attribute] = x.astype("int")
 
     return attribute_mappings, db
+
+def static_discretization(db: DataFrame, discretization: Dict[str, int]) -> DataFrame:
+    """Discretizes all attributes in the dataframe. It thereby reduces the problem of mining
+    quantitative itemsets to the problem of mining itemsets over binary data.
+
+    Args:
+        db (DataFrame): Dataframe to be transformed
+        discretization (Dict[str, int]): Name of the attribute (pandas column name) and the number of intervals
+
+    Returns:
+        DataFrame: DataFrame, where all columns correspond to binary attributes
+    """
+    mappings, encoded_db = discretize_values(db.copy(deep=True), discretization)
+    return _static_discretization(encoded_db, mappings)
+
+def _static_discretization(encoded_db: DataFrame, mapped_vals: Dict[str, Dict[int, Any]]) -> DataFrame:
+    """Discretizes all attributes in the dataframe.
+
+    Args:
+        encoded_db (DataFrame): Transformed database, where each value / interval is represented by an integer
+        mapped_vals (Dict[str, Dict[int, Any]]): Stores the information of the value transformations for each attribute
+
+    Returns:
+        DataFrame: DataFrame, where all columns correspond to binary attributes
+    """
+    rows = []
+    for idx, row in encoded_db.iterrows():
+        row_entry = []
+        attributes = row.index.array
+        for attribute in attributes:
+            name = ""
+            val = mapped_vals[attribute][row[attribute]]
+            if type(val) == tuple:
+                name = f"{attribute} = <{val[0]}..{val[1]}>"
+            else:
+                name = f"{attribute} = {val}"
+            
+            row_entry.append(name)
+
+        rows.append(row_entry)
+    
+    te = TransactionEncoder()
+    te_ary = te.fit_transform(rows)
+    df = pd.DataFrame(te_ary, columns=te.columns_)
+    return df
+    
 
 
 class Item:
