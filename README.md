@@ -13,6 +13,7 @@ a framework of the different algorithm implementations is built.
 - AClose
 - Minimal Non-redundant rules
 - Rule Generation for apriori-like Algorihtms
+- Brute Force Mining of Classification Rules
 
 ## Datasets
 - store_data.csv: [Store data](https://user.informatik.uni-goettingen.de/~sherbold/store_data.csv)
@@ -24,6 +25,5 @@ a framework of the different algorithm implementations is built.
 
 ```
 - Implement Multilevel Algorithms
-- Implement Static Discretization
 - Implement ARM based Classification Algorithms
 ```

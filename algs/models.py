@@ -70,7 +70,7 @@ class Model:
             pd.DataFrame: Resulting association rules
         """
         if self.transformer:
-            data = self.transformer(self.args[self.transformer])
+            data = self.transformer(data, **self.args[self.transformer])
         itemsets = self.itemset_miner(data, **self.args[self.itemset_miner])
         return self.rule_miner(itemsets, **self.args[self.rule_miner])
 
