@@ -23,7 +23,7 @@ class TestDiscretization:
     def test_partitioning(self):
         self._setup()
         mappings, db = discretize_values(
-            self.data.copy(deep=True), {"age": 4, "married": 0, "num_cars": 0}
+            self.data.copy(deep=True), {"age": 4, "married": 0, "num_cars": 0}, False
         )
         assert len(mappings["age"]) == 4
         assert len(mappings["married"]) == 2
@@ -44,7 +44,7 @@ class TestDiscretization:
     def test_find_frequent_items(self):
         self._setup()
         mappings, db = discretize_values(
-            self.data.copy(deep=True), {"age": 4, "married": 0, "num_cars": 0}
+            self.data.copy(deep=True), {"age": 4, "married": 0, "num_cars": 0}, False
         )
         result = find_frequent_items(
             mappings,
@@ -114,7 +114,7 @@ class TestDiscretization:
 
     def test_get_subintervals(self):
         self._setup()
-        _, db = discretize_values(self.data.copy(deep=True), {"age": 4})
+        _, db = discretize_values(self.data.copy(deep=True), {"age": 4}, False)
         itemset = (Item("age", 0, 2),)
         specializations = {(Item("age", 1, 2),): 2, (Item("age", 1, 1),): 1}
         result = _get_subintervals(db, specializations, itemset)
@@ -128,7 +128,7 @@ class TestDiscretization:
     def test__static_discretization(self):
         self._setup()
         mappings, db = discretize_values(
-            self.data.copy(deep=True), {"age": 4, "married": 0, "num_cars": 0}
+            self.data.copy(deep=True), {"age": 4, "married": 0, "num_cars": 0}, False
         )
         result = _static_discretization(db, mappings)
         # Numer of rows should not have changed

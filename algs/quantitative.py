@@ -5,18 +5,28 @@ from pandas import DataFrame
 from mlxtend.preprocessing import TransactionEncoder
 
 
-def partition_intervals(num_intervals: int, attribute: str, db: DataFrame) -> pd.Series:
-    """Discretizes a numerical attribute into num_intervals of equal size.
+def partition_intervals(
+    num_intervals: int, attribute: str, db: DataFrame, equi_depth: bool
+) -> pd.Series:
+    """Discretizes a numerical attribute into num_intervals of equal size/ width.
 
     Args:
         num_intervals (int): Number of intervals for this attribute
         attribute (str): Name of the attribute
         db (DataFrame): Database
+        equi_depth (bool): Equi-depth discretization else equi-width
 
     Returns:
         pd.Series : Series where every ajacent intervals are encoded as consecutive integers.
         The order of the intervals is reflected in the integers.
     """
+    if equi_depth:
+        return pd.qcut(
+            x=db[attribute],
+            q=num_intervals,
+            labels=[i for i in range(num_intervals)],
+            retbins=True,
+        )
     return pd.cut(
         x=db[attribute],
         bins=num_intervals,
@@ -42,7 +52,7 @@ def partition_categorical(attribute: str, db: DataFrame) -> Dict[int, Any]:
 
 
 def discretize_values(
-    db: DataFrame, discretization: Dict[str, int]
+    db: DataFrame, discretization: Dict[str, int], equi_depth: bool,
 ) -> Tuple[Dict[str, Dict[int, Any]], DataFrame]:
     """Maps the numerical and quantititative attributes to integers as described in 'Mining Quantitative Association
     Rules in Large Relational Tables'.
@@ -51,6 +61,7 @@ def discretize_values(
         db (DataFrame): Original Database
         discretization (Dict[str, int]): Name of the attribute (pandas column name) and the number of intervals
         for numerical attributes or 0 for categorical attributes and numerical attributes (no intervals)
+        equi_depth (bool): Equi-depth discretization else equi-width.
 
     Returns:
         Tuple[Dict[str,Dict[int, Any]], DataFrame]: Encoded database and the mapping from the consecutive integers back to
@@ -67,7 +78,7 @@ def discretize_values(
                 inplace=True,
             )
         else:
-            x, y = partition_intervals(ival, attribute, db)
+            x, y = partition_intervals(ival, attribute, db, equi_depth)
             int_val = db[attribute].dtype == int
             attribute_mappings[attribute] = {
                 i: (
@@ -80,21 +91,26 @@ def discretize_values(
 
     return attribute_mappings, db
 
-def static_discretization(db: DataFrame, discretization: Dict[str, int]) -> DataFrame:
+
+def static_discretization(db: DataFrame, discretization: Dict[str, int], equi_depth: bool = False) -> DataFrame:
     """Discretizes all attributes in the dataframe. It thereby reduces the problem of mining
     quantitative itemsets to the problem of mining itemsets over binary data.
 
     Args:
         db (DataFrame): Dataframe to be transformed
         discretization (Dict[str, int]): Name of the attribute (pandas column name) and the number of intervals
+        equi_depth (bool): Equi-depth discretization else equi-width (Defaults to False).
 
     Returns:
         DataFrame: DataFrame, where all columns correspond to binary attributes
     """
-    mappings, encoded_db = discretize_values(db.copy(deep=True), discretization)
+    mappings, encoded_db = discretize_values(db.copy(deep=True), discretization, equi_depth)
     return _static_discretization(encoded_db, mappings)
 
-def _static_discretization(encoded_db: DataFrame, mapped_vals: Dict[str, Dict[int, Any]]) -> DataFrame:
+
+def _static_discretization(
+    encoded_db: DataFrame, mapped_vals: Dict[str, Dict[int, Any]]
+) -> DataFrame:
     """Discretizes all attributes in the dataframe.
 
     Args:
@@ -115,16 +131,15 @@ def _static_discretization(encoded_db: DataFrame, mapped_vals: Dict[str, Dict[in
                 name = f"{attribute} = <{val[0]}..{val[1]}>"
             else:
                 name = f"{attribute} = {val}"
-            
+
             row_entry.append(name)
 
         rows.append(row_entry)
-    
+
     te = TransactionEncoder()
     te_ary = te.fit_transform(rows)
     df = pd.DataFrame(te_ary, columns=te.columns_)
     return df
-    
 
 
 class Item:
@@ -432,8 +447,8 @@ def _get_subintervals(
 
     Returns:
         Tuple[Set[Tuple[Item]], Dict[Tuple[Item], int]]: Itemsets generated from the difference,
-        all individual items that were generated from the difference and their support aswell as 
-        the itemsets themselves. 
+        all individual items that were generated from the difference and their support aswell as
+        the itemsets themselves.
     """
     new_itemsets = set()  # Holds X-X'
     new_items = {}  # Holds the items that are created by X-X'
@@ -470,7 +485,7 @@ def _is_specialization_interesting(
     n: int,
 ) -> bool:
     """Determine whether the difference (X-X') from the itemset to any of its specializations
-    is r-interesting wrt. the generalization of the itemset. 
+    is r-interesting wrt. the generalization of the itemset.
 
     Args:
         specializations (Set[Tuple[Item]]): All itemsets of the form: X-X'
@@ -503,7 +518,7 @@ def _is_specialization_interesting(
 def remove_r_uninteresting_itemsets(
     db: DataFrame, frequent_itemsets: Dict[Tuple[Item], int], R: float
 ) -> Dict[Tuple[Item], int]:
-    """Uses the definition of R-interestingness of itemsets in the context of 
+    """Uses the definition of R-interestingness of itemsets in the context of
     quantitative association rules to prune itemsets, that do not fullfill it.
 
     Args:
@@ -512,8 +527,9 @@ def remove_r_uninteresting_itemsets(
         R (float): Interest Level
 
     Returns:
-        Dict[Tuple[Item], int]: Frequent and R-interesting itemsets. 
+        Dict[Tuple[Item], int]: Frequent and R-interesting itemsets.
     """
+
     def _is_r_interesting(generalization: Tuple[Item], itemset: Tuple[Item]) -> bool:
         """Indicates whether the support of the itemset is r times the expected support
         given its generalization.
@@ -560,8 +576,27 @@ def quantitative_itemsets(
     minsupp: float = 0.05,
     maxsupp: float = 0.1,
     R: float = 0.0,
+    equi_depth: bool = False,
 ) -> DataFrame:
-    mappings, encoded_db = discretize_values(db.copy(deep=True), discretization)
+    """ Provides an algorithm similar to the one introduced in 
+    'Mining Quantitative Association Rules in Large Relational Tables'.
+    Optimizations for support counting are omitted, however.
+
+    Args:
+        db (DataFrame): Data mining context
+        discretization (Dict[str, int]): Attributes and how they should be discretized. 0 indicates no
+        merging of intervals. Any number greater than 0 will yield the amount of intervals for this attribute, for 
+        the initial partitioning.
+        minsupp (float, optional): Min support threshold. Defaults to 0.05.
+        maxsupp (float, optional): Max support threshold for interval merging. Defaults to 0.1.
+        R (float, optional): R Interest Level. Defaults to 0.0. If left at 0.0 no R-interestingess pruning 
+        occurs.
+        equi_depth (bool, optional): Equi-depth intervals when True else equi-width intervals. Defaults to False.
+
+    Returns:
+        DataFrame: All quantitative itemsets satisfying the given constraints.
+    """
+    mappings, encoded_db = discretize_values(db.copy(deep=True), discretization, equi_depth)
     frequent_items = find_frequent_items(
         mappings, encoded_db, discretization, minsupp, maxsupp
     )
