@@ -56,8 +56,8 @@ def generate_rules(frequent_itemsets: DataFrame, min_conf: float = 0.5) -> DataF
             if conf >= min_conf:
                 new_consequents.append(consequent)
                 yield {
-                    "antecedent": antecedent,
-                    "consequent": consequent,
+                    "antecedents": antecedent,
+                    "consequents": consequent,
                     "support": support_rule,
                     "confidence": conf,
                     "cosine": cosine(
@@ -290,5 +290,5 @@ def get_classification_rules(rules: DataFrame, label: str) -> DataFrame:
         DataFrame: All rules with only the label as consequent.
     """
     return rules.loc[
-        rules["consequent"].apply(lambda x: len(x) == 1 and x[0].startswith(label))
+        rules["consequents"].apply(lambda x: len(x) == 1 and x[0].startswith(label))
     ]
