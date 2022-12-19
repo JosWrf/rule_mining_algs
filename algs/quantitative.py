@@ -3,6 +3,7 @@ from typing import Any, Dict, Iterator, Set, Tuple
 import pandas as pd
 from pandas import DataFrame
 from mlxtend.preprocessing import TransactionEncoder
+from sklearn.cluster import Birch
 
 
 def partition_intervals(
@@ -140,6 +141,50 @@ def _static_discretization(
     te_ary = te.fit_transform(rows)
     df = pd.DataFrame(te_ary, columns=te.columns_)
     return df
+
+
+def cluster_interval_data(db: DataFrame, attr_threshold: Dict[Tuple[str], float]) -> DataFrame:
+    """Clusters interval data, using the birch clustering algorithm as described in 
+    'Association Rules over Interval Data'. The threshold is the upper bound of the
+    radius of subclusters. Further the clusters are described by their smallest bounding box.
+
+    Args:
+        db (DataFrame): Dataset, to mine quantitative association rules from
+        attr_threshold (Dict[Tuple[str], float]): Maps attribute (sets) to their radius threshold, which 
+        in turn determines the cluster quality
+
+    Returns:
+        DataFrame: One column for each attribute, value pair of all attributes. In the case of clusters
+        the values are cluster bounding boxes to represent the cluster.
+    """
+    data = db.copy(deep=True)
+
+    names = [name for tpl in attr_threshold.keys() for name in tpl]
+    discretization = {name: 0 for name in data.columns if name not in names}
+    for attributes, radius in attr_threshold.items():
+        # Build name of the attribute (can be combined e.g. x,y)
+        name = "{" + attributes.__str__()[1:-1].replace("'", "") + "}"
+        name = name.replace(",", "") if len(attributes) == 1 else name
+        discretization[name] = 0
+        attributes = list(attributes)
+
+        # Use birch clustering alg and calculate bounding boxes to represent clusters
+        brc = Birch(n_clusters=None, threshold=radius, copy=True)
+        data[name] = brc.fit_predict(data[attributes])
+        mins = data.groupby(name).min(numeric_only=True)[attributes].to_dict("tight")
+        maxs = data.groupby(name).max(numeric_only=True)[attributes].to_dict("tight")
+        
+        # Map the cluster id to a name representing the cluster
+        replace_dict = {}
+        idx = 0
+        for d1, d2 in zip(mins["data"], maxs["data"]):
+            attr_name = d1.__str__() + " x " + d2.__str__()
+            replace_dict[idx] = attr_name
+            idx += 1
+
+        data[name].replace(replace_dict, inplace=True)
+        data.drop(labels=attributes, axis=1, inplace=True)
+    return static_discretization(data, discretization)
 
 
 class Item:
