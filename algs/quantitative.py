@@ -154,8 +154,8 @@ def cluster_interval_data(db: DataFrame, attr_threshold: Dict[Tuple[str], float]
         in turn determines the cluster quality
 
     Returns:
-        DataFrame: One column for each attribute, value pair of all attributes. In the case of clusters
-        the values are cluster bounding boxes to represent the cluster.
+        DataFrame: One column for each attribute, value pair of all attributes (after clustering). 
+        In the case of clusters the values are bounding boxes to represent the cluster.
     """
     data = db.copy(deep=True)
 

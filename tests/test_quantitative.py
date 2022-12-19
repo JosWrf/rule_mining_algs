@@ -1,8 +1,10 @@
 import pandas as pd
+import pytest
 
 from algs.quantitative import (
     Item,
     _get_subintervals,
+    cluster_interval_data,
     discretize_values,
     find_frequent_items,
     get_generalizations_specializations,
@@ -155,3 +157,36 @@ class TestDiscretization:
         # Each row should have 3 1's
         num_attrs = result.sum(axis=1).to_numpy()
         assert (num_attrs == 3).all(0)
+
+    def test_cluster_interval_data(self):
+        self._setup()
+        attr_thresholds = {("age",): 5} # Causes two clusters of age to be built
+        result = cluster_interval_data(self.data, attr_thresholds)
+        # Number of row should not have changed
+        assert len(result) == 5
+
+        # Number columns: 2 age clusters + 2 married values + 3 num_cars values
+        assert len(result.columns) == 7
+
+        # Check the whether the cluster inclusion was correctly encoded
+        result["{age} = [23] x [29]"].values.tolist() == [True, True, True, False, False]
+        result["{age} = [34] x [38]"].values.tolist() == [False, False, False, True, True]
+
+        # Check if old attribute was removed
+        with pytest.raises(KeyError):
+            result["age"]
+
+    def test_cluster_interval_tuple(self):
+        self._setup()
+        attr_thresholds = {("age", "num_cars"): 5} 
+        result = cluster_interval_data(self.data, attr_thresholds)
+        result.drop(labels=["married = no", "married = yes"], axis=1, inplace=True)
+
+        with pytest.raises(KeyError):
+            result["age"]
+
+        with pytest.raises(KeyError):
+            result["num_cars"]
+
+        # Test presence of clustered attributes
+        assert any(name.startswith("{age, num_cars}") for name in result.columns)
