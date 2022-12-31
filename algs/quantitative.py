@@ -48,7 +48,8 @@ def partition_categorical(attribute: str, db: DataFrame) -> Dict[int, Any]:
     Returns:
         Dict[int, Any]: Mapping from category encoded as int to its categorical value
     """
-    mapping = dict(zip(db[attribute].astype("category").cat.codes, db[attribute]))
+    mapping = dict(zip(db[attribute].astype(
+        "category").cat.codes, db[attribute]))
     return mapping
 
 
@@ -71,16 +72,18 @@ def discretize_values(
     attribute_mappings = {}
     for attribute, ival in discretization.items():
         if ival == 0:
-            attribute_mappings[attribute] = partition_categorical(attribute, db)
+            attribute_mappings[attribute] = partition_categorical(
+                attribute, db)
             db[attribute].replace(
                 to_replace=dict(
-                    zip(db[attribute], db[attribute].astype("category").cat.codes)
+                    zip(db[attribute], db[attribute].astype(
+                        "category").cat.codes)
                 ),
                 inplace=True,
             )
         else:
             x, y = partition_intervals(ival, attribute, db, equi_depth)
-            int_val = db[attribute].dtype == int
+            int_val = pd.api.types.is_integer_dtype(db[attribute])
             attribute_mappings[attribute] = {
                 i: (
                     ceil(y[i]) if int_val else y[i],
@@ -105,7 +108,8 @@ def static_discretization(db: DataFrame, discretization: Dict[str, int], equi_de
     Returns:
         DataFrame: DataFrame, where all columns correspond to binary attributes
     """
-    mappings, encoded_db = discretize_values(db.copy(deep=True), discretization, equi_depth)
+    mappings, encoded_db = discretize_values(
+        db.copy(deep=True), discretization, equi_depth)
     return _static_discretization(encoded_db, mappings)
 
 
@@ -171,9 +175,11 @@ def cluster_interval_data(db: DataFrame, attr_threshold: Dict[Tuple[str], float]
         # Use birch clustering alg and calculate bounding boxes to represent clusters
         brc = Birch(n_clusters=None, threshold=radius, copy=True)
         data[name] = brc.fit_predict(data[attributes])
-        mins = data.groupby(name).min(numeric_only=True)[attributes].to_dict("tight")
-        maxs = data.groupby(name).max(numeric_only=True)[attributes].to_dict("tight")
-        
+        mins = data.groupby(name).min(numeric_only=True)[
+            attributes].to_dict("tight")
+        maxs = data.groupby(name).max(numeric_only=True)[
+            attributes].to_dict("tight")
+
         # Map the cluster id to a name representing the cluster
         replace_dict = {}
         idx = 0
@@ -324,7 +330,8 @@ def find_frequent_items(
                                 if candidates.get((it,)) == None:
                                     candidates[(it,)] = val
                                 else:
-                                    candidates[(it,)] = max(candidates[(it,)], val)
+                                    candidates[(it,)] = max(
+                                        candidates[(it,)], val)
                     if upper < max_upper:
                         it = Item(item[0].name, lower, upper + 1)
                         for item, sup in itemsets.items():
@@ -333,7 +340,8 @@ def find_frequent_items(
                                 if candidates.get((it,)) == None:
                                     candidates[(it,)] = val
                                 else:
-                                    candidates[(it,)] = max(candidates[(it,)], val)
+                                    candidates[(it,)] = max(
+                                        candidates[(it,)], val)
 
             seeds = candidates
 
@@ -382,7 +390,8 @@ def _generate_itemsets_by_join(
             # If the last attribute matches this will evaluate to false
             if not skip and itemset[k - 1] < other[k - 1]:
                 yield itemset + (
-                    Item(other[k - 1].name, other[k - 1].lower, other[k - 1].upper),
+                    Item(other[k - 1].name, other[k - 1].lower,
+                         other[k - 1].upper),
                 )
 
 
@@ -404,7 +413,7 @@ def _is_candidate(
         return True
 
     for i in range(len(candidate_set)):
-        if not candidate_set[0:i] + candidate_set[i + 1 :] in old_itemsets:
+        if not candidate_set[0:i] + candidate_set[i + 1:] in old_itemsets:
             return False
 
     return True
@@ -458,7 +467,8 @@ def get_generalizations_specializations(
         attrs = True
 
         for i in range(len(items)):
-            if items[i].name != itemset[i].name:  # Attributes(X) != Attributes(X')
+            # Attributes(X) != Attributes(X')
+            if items[i].name != itemset[i].name:
                 attrs = False
                 break
             if (
@@ -598,10 +608,12 @@ def remove_r_uninteresting_itemsets(
     n = len(db)
     r_interesting_itemsets = {}
     for item, support in frequent_itemsets.items():
-        partial_order = get_generalizations_specializations(frequent_itemsets, item)
+        partial_order = get_generalizations_specializations(
+            frequent_itemsets, item)
 
         interesting = True
-        sub_intervals, sub_items = _get_subintervals(db, partial_order[0], item)
+        sub_intervals, sub_items = _get_subintervals(
+            db, partial_order[0], item)
         for gen, supp in partial_order[1].items():
             if not _is_r_interesting(gen, item) or not _is_specialization_interesting(
                 sub_intervals, gen, sub_items, frequent_itemsets, R, supp / n, n
@@ -641,11 +653,13 @@ def quantitative_itemsets(
     Returns:
         DataFrame: All quantitative itemsets satisfying the given constraints.
     """
-    mappings, encoded_db = discretize_values(db.copy(deep=True), discretization, equi_depth)
+    mappings, encoded_db = discretize_values(
+        db.copy(deep=True), discretization, equi_depth)
     frequent_items = find_frequent_items(
         mappings, encoded_db, discretization, minsupp, maxsupp
     )
-    frequent_items = _prune_by_r_interest(frequent_items, discretization, R, len(db))
+    frequent_items = _prune_by_r_interest(
+        frequent_items, discretization, R, len(db))
     frequent_k_itemsets = frequent_items.copy()
     k = 1
 
@@ -661,7 +675,8 @@ def quantitative_itemsets(
         k += 1
 
     if R != 0:
-        frequent_items = remove_r_uninteresting_itemsets(encoded_db, frequent_items, R)
+        frequent_items = remove_r_uninteresting_itemsets(
+            encoded_db, frequent_items, R)
 
     # Map resulting itemsets back to their (interval) values
     itemsets = []
@@ -676,7 +691,8 @@ def quantitative_itemsets(
                 items.append(f"{item.name} = {lower}")
             else:
                 items.append(f"{item.name} = {lower[0]}..{upper[1]}")
-        itemsets.append({"itemsets": tuple(items), "support": support / len(db)})
+        itemsets.append({"itemsets": tuple(items),
+                        "support": support / len(db)})
 
     df = pd.DataFrame(itemsets)
     return df
