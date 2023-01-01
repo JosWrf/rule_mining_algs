@@ -55,6 +55,37 @@ class Individuum:
 
         return True
 
+    def crossover(self, other: Any, probability: float) -> Tuple[Any, Any]:
+        """Performs crossover operator to generate two offsprings from two individuals.
+        Common genes are inherited by taking one at random with the given probability.
+        Other genes are inherited by default.
+
+        Args:
+            other (Any): Individual to cross the current individual with
+            probability (float): Crossover probability
+
+        Returns:
+            Tuple[Any, Any]: Two offsprings resulting from the crossover
+        """
+        other_genes = other.get_items()
+        genes1 = {}
+        for name, genes in self.get_items().items():
+            if other_genes.get(name) == None:
+                genes1[name] = genes
+            else:
+                genes1[name] = genes if random.random(
+                ) > probability else other_genes[name]
+
+        genes2 = {}
+        for name, genes in other_genes.items():
+            if self.items.get(name) == None:
+                genes2[name] = genes
+            else:
+                genes2[name] = genes if random.random(
+                ) > probability else self.items[name]
+
+        return (Individuum(genes1), Individuum(genes2))
+
     def __repr__(self) -> str:
         return self.items.__repr__()
 
@@ -173,8 +204,26 @@ def _amplitude(intervals: Dict[str, Tuple[float, float]], ind: Individuum) -> fl
     return avg_amp / count
 
 
-def _cross_over() -> List[Individuum]:
-    return []
+def _cross_over(population: List[Individuum], probability: float) -> List[Individuum]:
+    """Crossover genes of the individuals and produce two offsprings, for each pair of
+    randomly sampled progenitors.
+
+    Args:
+        population (List[Individuum]): Progenitors that are crossed at random
+        probability (float): Crossover probability
+
+    Returns:
+        List[Individuum]: Offspring pair for each crossover event. It has double the size of 
+        the given population.
+    """
+    recombinations = []
+
+    for i in range(len(population)):
+        progenitors = random.sample(population, k=2)
+        offspring = progenitors[0].crossover(progenitors[1], probability)
+        recombinations.extend(offspring)
+
+    return recombinations
 
 
 def _mutate() -> None:
@@ -202,7 +251,19 @@ def _penalize() -> None:
 
 
 def gar(db: pd.DataFrame, num_cat_attrs: Dict[str, bool], num_sets: int, num_gens: int, population_size: int,
-        omega: float, psi: float, mu: float, selection_percentage: float) -> None:
+        omega: float, psi: float, mu: float, selection_percentage: float, recombination_probability: float) -> None:
+    def __get_fitter_offspring(db: pd.DataFrame, marked_rows: Dict[int, bool], population: List[Individuum]):
+        """Processes the population of offsprings and then filters out the least adapted of the 
+        offspring pairs.
+        """
+        _process(db, marked_rows, population)
+
+        for individual in population:
+            individual.fitness = _get_fitness(individual.coverage / len(db), individual.marked/len(
+                db), _amplitude(intervals, individual), individual.num_attrs() / len(num_cat_attrs))
+
+        return [population[i] if population[i].get_fitness() > population[i+1].get_fitness() else population[i+1] for i in range(0, len(population), 2)]
+
     def _get_fitness(coverage, marked, amplitude, num_attr) -> float:
         return coverage - marked*omega - amplitude*psi + num_attr*mu
 
@@ -217,4 +278,8 @@ def gar(db: pd.DataFrame, num_cat_attrs: Dict[str, bool], num_sets: int, num_gen
             for individual in population:
                 individual.fitness = _get_fitness(individual.coverage / len(db), individual.marked/len(
                     db), _amplitude(intervals, individual), individual.num_attrs() / len(num_cat_attrs))
-            fittest, remaining = _get_fittest(population, selection_percentage)
+            next_population, remaining = _get_fittest(
+                population, selection_percentage)
+            offsprings = _cross_over(remaining)
+            offsprings = __get_fitter_offspring(db, marked_rows, offsprings)
+            next_population.extend(offsprings)

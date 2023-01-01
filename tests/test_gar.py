@@ -1,7 +1,7 @@
 import random
 import pandas as pd
 
-from algs.gar import Gene, Individuum, _amplitude, _generate_first_population, _get_fittest, _get_lower_upper_bound, _process
+from algs.gar import Gene, Individuum, _amplitude, _cross_over, _generate_first_population, _get_fittest, _get_lower_upper_bound, _process
 
 
 class TestGar:
@@ -63,3 +63,36 @@ class TestGar:
         assert len(remaining) == 3
         # Check that only the fittest elements were selected for the next generation
         assert all(x.fitness <= fittest[-1].fitness for x in remaining)
+
+    def test_gene_crossover(self):
+        genes1 = {"age": Gene("age", True, 27, 34, 30),
+                  "married": Gene("married", False, 1, 1, True)}
+        genes2 = {"age": Gene("age", True, 25, 38, 0),
+                  "married": Gene("married", False, 1, 1, True),
+                  "temperature": Gene("temperature", True, -10, 20, 15)}
+        p1 = Individuum(genes1)
+        p2 = Individuum(genes2)
+        result = p1.crossover(p2, 0.5)
+
+        assert len(result) == 2
+        # The first offspring has 2 attributes as its pregenitor
+        assert result[0].num_attrs() == 2
+        # The second offspring has 3 attributes as its pregenitor
+        assert result[1].num_attrs() == 3
+        p1_items = result[0].get_items()
+        p2_items = result[1].get_items()
+        # Temperature gene should stay untouched
+        assert p2_items["temperature"] == genes2["temperature"]
+        # Age gene is randomly chosen from either progenitor
+        assert p2_items["age"] == genes1["age"] or p2_items["age"] == genes2["age"]
+        assert p1_items["age"] == genes1["age"] or p1_items["age"] == genes2["age"]
+
+    def test_crossover_types(self):
+        self._setup()
+        intervals = _get_lower_upper_bound(self.data, self.description)
+        population = _generate_first_population(self.data, 5, intervals)
+        result = _cross_over(population, 0.5)
+        # Every item should be an idividuum and there should be 2 offsprings
+        # for every element in the population
+        assert all(type(x) == Individuum for x in result)
+        assert len(result) == 2*len(population)
