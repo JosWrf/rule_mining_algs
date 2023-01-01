@@ -107,10 +107,15 @@ class Individuum:
                     width_delta = (upper - lower) / 11
                     delta1 = random.uniform(0, width_delta)
                     delta2 = random.uniform(0, width_delta)
-                    gene.lower += max(delta1 *
-                                      (-1 if random.random() < 0.5 else 1), lower)
-                    gene.upper += min(delta2 *
-                                      (-1 if random.random() < 0.5 else 1), upper)
+                    gene.lower += delta1 - 1 if random.random() < 0.5 else 1
+                    gene.upper += delta2 - 1 if random.random() < 0.5 else 1
+                    # All this mess ensures that the interval boundaries do not exceed DB [min, max]
+                    gene.lower = max(lower, gene.lower)
+                    gene.upper = min(upper, gene.upper)
+                    if gene.lower > gene.upper:
+                        gene.upper, gene.lower = gene.lower, gene.upper
+                        gene.lower = max(lower, gene.lower)
+                        gene.upper = min(upper, gene.upper)
 
                 else:
                     # Only seldomly change the value of the categorical attribute
@@ -229,10 +234,11 @@ def _amplitude(intervals: Dict[str, Tuple[float, float]], ind: Individuum) -> fl
     for name, gene in ind.get_items().items():
         if intervals.get(name):
             lower, upper = intervals[name]
-            avg_amp += (gene.upper - gene.lower) / (upper - lower)
+            avg_amp += (gene.upper - gene.lower) / \
+                (upper - lower) if upper-lower != 0 else 1
             count += 1
 
-    return avg_amp / count
+    return avg_amp / count if count != 0 else 0
 
 
 def _cross_over(population: List[Individuum], probability: float) -> List[Individuum]:
@@ -320,8 +326,8 @@ def gar(db: pd.DataFrame, num_cat_attrs: Dict[str, bool], num_sets: int, num_gen
                 population, selection_percentage)
             offsprings = _cross_over(remaining, recombination_probability)
             __update_counts(db, marked_rows, offsprings)
-            offsprings = [population[i] if population[i].get_fitness(
-            ) > population[i+1].get_fitness() else population[i+1] for i in range(0, len(population), 2)]
+            offsprings = [offsprings[i] if offsprings[i].get_fitness(
+            ) > offsprings[i+1].get_fitness() else offsprings[i+1] for i in range(0, len(offsprings), 2)]
             next_population.extend(offsprings)
 
             for individual in next_population:
@@ -330,7 +336,8 @@ def gar(db: pd.DataFrame, num_cat_attrs: Dict[str, bool], num_sets: int, num_gen
             population = next_population
 
         __update_counts(db, marked_rows, population)
-        chosen_one = max(ind.get_fitness() for ind in population)
+        chosen_one = max(population, key=lambda item: item.get_fitness())
+        print(chosen_one)
         _update_marked_records(db, marked_rows, chosen_one)
 
         fittest_itemsets.append(chosen_one)
