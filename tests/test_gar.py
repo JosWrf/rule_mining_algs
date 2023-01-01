@@ -1,6 +1,7 @@
+import random
 import pandas as pd
 
-from algs.gar import Gene, Individuum, _amplitude, _generate_first_population, _get_lower_upper_bound, _process
+from algs.gar import Gene, Individuum, _amplitude, _generate_first_population, _get_fittest, _get_lower_upper_bound, _process
 
 
 class TestGar:
@@ -49,3 +50,16 @@ class TestGar:
         ind.marked = 0
         result = _amplitude(intervals, ind)
         assert result == 7 / (38-23)
+
+    def test_get_fittest(self):
+        self._setup()
+        intervals = _get_lower_upper_bound(self.data, self.description)
+        population = _generate_first_population(self.data, 5, intervals)
+        for itm in population:
+            itm.fitness = random.random()
+        fittest, remaining = _get_fittest(population, 0.2)
+        # 0.2*5 + 1 = 2
+        assert len(fittest) == 2
+        assert len(remaining) == 3
+        # Check that only the fittest elements were selected for the next generation
+        assert all(x.fitness <= fittest[-1].fitness for x in remaining)

@@ -181,15 +181,28 @@ def _mutate() -> None:
     pass
 
 
-def _get_fittest() -> Individuum:
-    pass
+def _get_fittest(population: List[Individuum], selection_percentage: float) -> Tuple[List[Individuum], List[Individuum]]:
+    """Determines the selection percentage fittest individuals and returns them as first
+    element of the tuple. The other tuple element contains the remaining individuals.
+
+    Args:
+        population (List[Individuum]): Individuals of the current generation.
+        selection_percentage (float): Percentage of how much individuals of the current generation pass on to the next.
+
+    Returns:
+        Tuple[List[Individuum], List[Individuum]]: Fittest individuals, Remaining ones being subject to the crossover operator
+    """
+    population.sort(key=lambda x: x.fitness, reverse=True)
+    fittest = floor(selection_percentage*len(population) + 1)
+    return (population[:fittest], population[fittest:])
 
 
 def _penalize() -> None:
     pass
 
 
-def gar(db: pd.DataFrame, num_cat_attrs: Dict[str, bool], num_sets: int, num_gens: int, population_size: int, omega: float, psi: float, mu: float) -> None:
+def gar(db: pd.DataFrame, num_cat_attrs: Dict[str, bool], num_sets: int, num_gens: int, population_size: int,
+        omega: float, psi: float, mu: float, selection_percentage: float) -> None:
     def _get_fitness(coverage, marked, amplitude, num_attr) -> float:
         return coverage - marked*omega - amplitude*psi + num_attr*mu
 
@@ -204,5 +217,4 @@ def gar(db: pd.DataFrame, num_cat_attrs: Dict[str, bool], num_sets: int, num_gen
             for individual in population:
                 individual.fitness = _get_fitness(individual.coverage / len(db), individual.marked/len(
                     db), _amplitude(intervals, individual), individual.num_attrs() / len(num_cat_attrs))
-            _get_fittest()
-    return
+            fittest, remaining = _get_fittest(population, selection_percentage)
