@@ -1,7 +1,10 @@
 import random
+
 import pandas as pd
 
-from algs.gar import Gene, Individuum, _amplitude, _cross_over, _generate_first_population, _get_fittest, _get_lower_upper_bound, _process
+from algs.gar import (Gene, Individuum, _amplitude, _cross_over,
+                      _generate_first_population, _get_fittest,
+                      _get_lower_upper_bound, _process, _update_marked_records)
 
 
 class TestGar:
@@ -66,18 +69,18 @@ class TestGar:
 
     def test_gene_crossover(self):
         genes1 = {"age": Gene("age", True, 27, 34, 30),
-                  "married": Gene("married", False, 1, 1, True)}
+                  "married": Gene("married", False, 1, 1, "yes")}
         genes2 = {"age": Gene("age", True, 25, 38, 0),
-                  "married": Gene("married", False, 1, 1, True),
+                  "married": Gene("married", False, 1, 1, "yes"),
                   "temperature": Gene("temperature", True, -10, 20, 15)}
         p1 = Individuum(genes1)
         p2 = Individuum(genes2)
         result = p1.crossover(p2, 0.5)
 
         assert len(result) == 2
-        # The first offspring has 2 attributes as its pregenitor
+        # The first offspring has 2 attributes as its progenitor
         assert result[0].num_attrs() == 2
-        # The second offspring has 3 attributes as its pregenitor
+        # The second offspring has 3 attributes as its progenitor
         assert result[1].num_attrs() == 3
         p1_items = result[0].get_items()
         p2_items = result[1].get_items()
@@ -96,3 +99,22 @@ class TestGar:
         # for every element in the population
         assert all(type(x) == Individuum for x in result)
         assert len(result) == 2*len(population)
+
+    def test_mutate(self):
+        self._setup()
+        genes = {"age": Gene("age", True, 27, 34, 30),
+                 "married": Gene("married", False, 1, 1, "yes")}
+        ind = Individuum(genes)
+        ind.mutate(self.data, 0.5)
+        assert ind.num_attrs() == 2
+        assert ind.get_items()[
+            "married"].value in self.data["married"].to_numpy().tolist()
+
+    def test_update_marked_records(self):
+        self._setup()
+        genes = {"temperature": Gene("temperature", True, 0, 25, 30)}
+        ind = Individuum(genes)
+        marked = {row: False for row in range(len(self.data))}
+        _update_marked_records(self.data, marked, ind)
+        new_marked = {0: True, 1: False, 2: False, 3: False, 4: True}
+        assert marked == new_marked

@@ -86,6 +86,37 @@ class Individuum:
 
         return (Individuum(genes1), Individuum(genes2))
 
+    def mutate(self, db: pd.DataFrame, probability: float) -> None:
+        """Mutates randomly selected genes. For numeric genes the interval bounaries
+        are either increased or deacreased by [0, interval_width/11]. In case of 
+        categorical attributes there's a 25% of changing the attribute to a random 
+        value of the domain.
+
+        Args:
+            db (pd.DataFrame): Database
+            probability (float): Mutation probability
+        """
+        for gene in self.items.values():
+            # Mutate in this case
+            if random.random() < probability:
+                name = gene.name
+                if gene.is_numerical():
+                    # Change the upper and lower bound of the interval
+                    lower = db[name].min()
+                    upper = db[name].max()
+                    width_delta = (upper - lower) / 11
+                    delta1 = random.uniform(0, width_delta)
+                    delta2 = random.uniform(0, width_delta)
+                    gene.lower += max(delta1 *
+                                      (-1 if random.random() < 0.5 else 1), lower)
+                    gene.upper += min(delta2 *
+                                      (-1 if random.random() < 0.5 else 1), upper)
+
+                else:
+                    # Only seldomly change the value of the categorical attribute
+                    gene.value = gene.value if random.random(
+                    ) < 0.75 else np.random.choice(db[name].to_numpy())
+
     def __repr__(self) -> str:
         return self.items.__repr__()
 
@@ -226,10 +257,6 @@ def _cross_over(population: List[Individuum], probability: float) -> List[Indivi
     return recombinations
 
 
-def _mutate() -> None:
-    pass
-
-
 def _get_fittest(population: List[Individuum], selection_percentage: float) -> Tuple[List[Individuum], List[Individuum]]:
     """Determines the selection percentage fittest individuals and returns them as first
     element of the tuple. The other tuple element contains the remaining individuals.
@@ -246,15 +273,26 @@ def _get_fittest(population: List[Individuum], selection_percentage: float) -> T
     return (population[:fittest], population[fittest:])
 
 
-def _penalize() -> None:
-    pass
+def _update_marked_records(db: pd.DataFrame, marked_records: Dict[int, bool], chosen: Individuum) -> None:
+    """In a postprocessing step, the itemset with the highest fitness is used to mark all the 
+    records in the db, that are covered by the itemset.
+
+    Args:
+        db (pd.DataFrame): Database whose records will be marked
+        marked_records (Dict[int, bool]): Stores for each record whether its already marked
+        chosen (Individuum): The fittest itemset of the fully evolved population
+    """
+    for row in range(len(db)):
+        record = db.iloc[row]
+        if chosen.matches(record):
+            marked_records[row] = True
 
 
 def gar(db: pd.DataFrame, num_cat_attrs: Dict[str, bool], num_sets: int, num_gens: int, population_size: int,
-        omega: float, psi: float, mu: float, selection_percentage: float, recombination_probability: float) -> None:
-    def __get_fitter_offspring(db: pd.DataFrame, marked_rows: Dict[int, bool], population: List[Individuum]):
-        """Processes the population of offsprings and then filters out the least adapted of the 
-        offspring pairs.
+        omega: float, psi: float, mu: float, selection_percentage: float = 0.15, recombination_probability: float = 0.5,
+        mutation_probability: float = 0.4) -> None:
+    def __update_counts(db: pd.DataFrame, marked_rows: Dict[int, bool], population: List[Individuum]) -> None:
+        """Processes the population and updates the coverage and marked counts.
         """
         _process(db, marked_rows, population)
 
@@ -262,14 +300,14 @@ def gar(db: pd.DataFrame, num_cat_attrs: Dict[str, bool], num_sets: int, num_gen
             individual.fitness = _get_fitness(individual.coverage / len(db), individual.marked/len(
                 db), _amplitude(intervals, individual), individual.num_attrs() / len(num_cat_attrs))
 
-        return [population[i] if population[i].get_fitness() > population[i+1].get_fitness() else population[i+1] for i in range(0, len(population), 2)]
-
     def _get_fitness(coverage, marked, amplitude, num_attr) -> float:
         return coverage - marked*omega - amplitude*psi + num_attr*mu
 
-    intervals = _get_lower_upper_bound(db, num_cat_attrs)
+    fittest_itemsets = []
     # Store which rows of the DB were marked
     marked_rows: Dict[int, bool] = {row: False for row in range(len(db))}
+    intervals = _get_lower_upper_bound(db, num_cat_attrs)
+
     for n_itemsets in range(num_sets):
         population = _generate_first_population(db, population_size, intervals)
         for n_gen in range(num_gens):
@@ -280,6 +318,19 @@ def gar(db: pd.DataFrame, num_cat_attrs: Dict[str, bool], num_sets: int, num_gen
                     db), _amplitude(intervals, individual), individual.num_attrs() / len(num_cat_attrs))
             next_population, remaining = _get_fittest(
                 population, selection_percentage)
-            offsprings = _cross_over(remaining)
-            offsprings = __get_fitter_offspring(db, marked_rows, offsprings)
+            offsprings = _cross_over(remaining, recombination_probability)
+            __update_counts(db, marked_rows, offsprings)
+            offsprings = [population[i] if population[i].get_fitness(
+            ) > population[i+1].get_fitness() else population[i+1] for i in range(0, len(population), 2)]
             next_population.extend(offsprings)
+
+            for individual in next_population:
+                individual.mutate(db, mutation_probability)
+
+            population = next_population
+
+        __update_counts(db, marked_rows, population)
+        chosen_one = max(ind.get_fitness() for ind in population)
+        _update_marked_records(db, marked_rows, chosen_one)
+
+        fittest_itemsets.append(chosen_one)
