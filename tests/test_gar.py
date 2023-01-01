@@ -1,6 +1,6 @@
 import pandas as pd
 
-from algs.gar import _generate_first_population, _get_lower_upper_bound
+from algs.gar import Gene, Individuum, _amplitude, _generate_first_population, _get_lower_upper_bound, _process
 
 
 class TestGar:
@@ -25,3 +25,27 @@ class TestGar:
             ind.get_items()) <= 3 for ind in result)
         # The population size has been set to 5
         assert len(result) == 5
+
+    def test_process(self):
+        self._setup()
+        intervals = _get_lower_upper_bound(self.data, self.description)
+        population = _generate_first_population(self.data, 5, intervals)
+        marked = {row: False for row in range(len(self.data))}
+        old_coverage = sum([cov.coverage for cov in population])
+        _process(self.data, marked, population)
+        new_coverage = sum([cov.coverage for cov in population])
+        # Every individuum is supported by at least one record
+        assert old_coverage + len(self.data) - 1 < new_coverage
+        # The marks should not have changed
+        assert sum([1 for val in marked.values() if val]) == 0
+
+    def test_amplitude(self):
+        self._setup()
+        intervals = _get_lower_upper_bound(self.data, self.description)
+        genes = {"age": Gene("age", True, 27, 34, 0),
+                 "married": Gene("married", False, 1, 1, 1)}
+        ind = Individuum(genes)
+        ind.coverage = 2
+        ind.marked = 0
+        result = _amplitude(intervals, ind)
+        assert result == 7 / (38-23)

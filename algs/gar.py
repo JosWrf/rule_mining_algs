@@ -18,6 +18,9 @@ class Gene:
         self.lower = lower
         self.value = value
 
+    def is_numerical(self) -> bool:
+        return self.numerical
+
     def __repr__(self) -> str:
         if not self.numerical:
             return f"{self.name}: {self.value}"
@@ -30,13 +33,27 @@ class Individuum:
     def __init__(self, items: Dict[str,  Gene]) -> None:
         self.items = items
         self.fitness = 0.0
-        self.coverage = 0.0
+        self.coverage = 0
+        self.marked = 0
+
+    def num_attrs(self) -> int:
+        return len(self.items)
+
+    def get_fitness(self) -> float:
+        return self.fitness
 
     def get_items(self) -> Dict[str, Gene]:
         return self.items
 
-    def get_num_attrs(self) -> int:
-        return len(self.items)
+    def matches(self, record: pd.Series) -> bool:
+        for name, gene in self.items.items():
+            val = record[name]
+            if gene.is_numerical() and (val > gene.upper or val < gene.lower):
+                return False
+            elif not gene.is_numerical() and (val != gene.value):
+                return False
+
+        return True
 
     def __repr__(self) -> str:
         return self.items.__repr__()
@@ -68,10 +85,6 @@ def _get_lower_upper_bound(db: pd.DataFrame, num_cat_attrs: Dict[str, bool]) -> 
             interval_boundaries[name] = (min_val, max_val)
 
     return interval_boundaries
-
-
-def _get_fitness() -> float:
-    return 0.0
 
 
 def _generate_first_population(db: pd.DataFrame, population_size: int, interval_boundaries: Dict[str, Tuple[float, float]]) -> List[Individuum]:
@@ -120,8 +133,44 @@ def _generate_first_population(db: pd.DataFrame, population_size: int, interval_
     return individuums
 
 
-def _process() -> List[Individuum]:
-    return []
+def _process(db: pd.DataFrame, marked_rows: Dict[int, bool], population: List[Individuum]) -> None:
+    """Counts the number of records each individual covers aswell as the number of 
+    covered records that are already marked and stores them in the individual.
+
+    Args:
+        db (pd.DataFrame): Database 
+        marked_rows (Dict[int, bool]): Rows that are already covered by some fittest itemset
+        population (List[Individuum]): Current population
+    """
+    for row in range(len(db)):
+        record = db.iloc[row]
+        for individual in population:
+            if individual.matches(record):
+                individual.coverage += 1
+                individual.marked += 1 if marked_rows[row] else 0
+
+
+def _amplitude(intervals: Dict[str, Tuple[float, float]], ind: Individuum) -> float:
+    """Calculates the average amplitude over all numerical attributes.
+    Sum over all attributes with (ind.upper - ind.lower) / (attr.upper - attr.lower) 
+    divided by the number of numeric attributes.
+
+    Args:
+        intervals (Dict[str, Tuple[float, float]]): Result of _get_upper_lower_bound
+        ind (Individuum): Individual whose marked and coverage fields have been set
+
+    Returns:
+        float: The average amplitude used to penalize the fitness.
+    """
+    avg_amp = 0.0
+    count = 0
+    for name, gene in ind.get_items().items():
+        if intervals.get(name):
+            lower, upper = intervals[name]
+            avg_amp += (gene.upper - gene.lower) / (upper - lower)
+            count += 1
+
+    return avg_amp / count
 
 
 def _cross_over() -> List[Individuum]:
@@ -140,8 +189,20 @@ def _penalize() -> None:
     pass
 
 
-def gar(db: pd.DataFrame, num_cat_attrs: Dict[str, bool], num_sets: int, num_gens: int, population_size: int) -> None:
-    # TODO: Implement me
+def gar(db: pd.DataFrame, num_cat_attrs: Dict[str, bool], num_sets: int, num_gens: int, population_size: int, omega: float, psi: float, mu: float) -> None:
+    def _get_fitness(coverage, marked, amplitude, num_attr) -> float:
+        return coverage - marked*omega - amplitude*psi + num_attr*mu
+
     intervals = _get_lower_upper_bound(db, num_cat_attrs)
-    _generate_first_population(db, population_size, intervals)
+    # Store which rows of the DB were marked
+    marked_rows: Dict[int, bool] = {row: False for row in range(len(db))}
+    for n_itemsets in range(num_sets):
+        population = _generate_first_population(db, population_size, intervals)
+        for n_gen in range(num_gens):
+            _process(db, marked_rows, population)
+
+            for individual in population:
+                individual.fitness = _get_fitness(individual.coverage / len(db), individual.marked/len(
+                    db), _amplitude(intervals, individual), individual.num_attrs() / len(num_cat_attrs))
+            _get_fittest()
     return
