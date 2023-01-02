@@ -1,8 +1,46 @@
 import pandas as pd
 from mlxtend.preprocessing import TransactionEncoder
 
-from algs.apriori import a_close
-from algs.rule_gen import generic_basis, transitive_reduction_of_informative_basis
+from algs.apriori import a_close, apriori
+from algs.rule_gen import generate_rules, generic_basis, transitive_reduction_of_informative_basis
+
+
+class TestRuleGeneration:
+    def _setup(self) -> None:
+        data = [  # Data-Mining context from Fast Mining of Association Rules
+            [1, 3, 4],
+            [2, 3, 5],
+            [1, 2, 3, 5],
+            [2, 5]
+        ]  # Every item except for 4 is frequent
+        te = TransactionEncoder()
+        te_ary = te.fit_transform(data)
+        transactions = pd.DataFrame(te_ary, columns=te.columns_)
+        self.frequent_items = apriori(transactions, 0.5)
+
+    def test_rule_gen_wo_pruning(self):
+        self._setup()
+        result = generate_rules(self.frequent_items, 0.0)
+        # 4 2-itemsets + 1 3-itemset = 4*2**2-2 + 2**3-2 = 14
+        assert len(result) == 14
+        assert result["confidence"].min() == 2/3
+        assert result["confidence"].max() == 1.0
+        assert all(len(consequent) <=
+                   2 for consequent in result["consequents"])
+        assert all(len(antecedent) <=
+                   2 for antecedent in result["antecedents"])
+
+    def test_rule_gen_w_pruning(self):
+        self._setup()
+        result = generate_rules(self.frequent_items, 0.7)
+        # Using the tables in the paper to calculate the confidence there should be 5
+        # rules with confidence = 1 and nine with confidence = 2/3
+        assert len(result) == 5
+        assert all(value == 1.0 for value in result["confidence"].to_numpy())
+        assert all(len(consequent) <=
+                   2 for consequent in result["consequents"])
+        assert all(len(antecedent) <=
+                   2 for antecedent in result["antecedents"])
 
 
 class TestMinimalNonRedundantRules:

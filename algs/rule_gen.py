@@ -49,6 +49,8 @@ def generate_rules(frequent_itemsets: DataFrame, min_conf: float = 0.5) -> DataF
         new_consequents = []
         for consequent in consequents:
             support_rule = itemset["support"]
+            if support_rule == 0:
+                continue
             antecedent = tuple(
                 [item for item in itemset["itemsets"] if item not in consequent]
             )
@@ -151,7 +153,7 @@ def __apriori_gen(old_candidates: List[Tuple[str]], k: int) -> List[Tuple[str]]:
         candidate
         for candidate in candidates
         if all(
-            candidate[:i] + candidate[i + 1 :] in old_candidates
+            candidate[:i] + candidate[i + 1:] in old_candidates
             for i in range(len(candidate))
         )
     ]
@@ -253,7 +255,8 @@ def transitive_reduction_of_informative_basis(
 
         # Determine the set of all fc_s that may be rhs of a rule
         for j in range(len(closure), mu + 1):
-            s_j = {fci: supp for fci, supp in FC_j[j].items() if closure < set(fci)}
+            s_j = {fci: supp for fci,
+                   supp in FC_j[j].items() if closure < set(fci)}
             S.append(s_j)
 
         for j in range(len(S)):
@@ -290,5 +293,6 @@ def get_classification_rules(rules: DataFrame, label: str) -> DataFrame:
         DataFrame: All rules with only the label as consequent.
     """
     return rules.loc[
-        rules["consequents"].apply(lambda x: len(x) == 1 and x[0].startswith(label))
+        rules["consequents"].apply(lambda x: len(
+            x) == 1 and x[0].startswith(label))
     ]

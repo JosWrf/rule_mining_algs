@@ -321,7 +321,33 @@ def _update_marked_records(db: pd.DataFrame, marked_records: Dict[int, bool], ch
 
 def gar(db: pd.DataFrame, num_cat_attrs: Dict[str, bool], num_sets: int, num_gens: int, population_size: int,
         omega: float, psi: float, mu: float, selection_percentage: float = 0.15, recombination_probability: float = 0.5,
-        mutation_probability: float = 0.4) -> None:
+        mutation_probability: float = 0.4) -> pd.DataFrame:
+    """Implementation of the GAR evolutionary algorithm from 'An Evolutionary Algorithm to Discover Numeric Association Rules'.
+    Coverage was assumed to be relative support, amplitude was defined as (gene.upper-gene.lower) / (upper-lower), tuples were 
+    marked when a chosen individual is supported by a row, a more elaborate marking could store the attributes that are covered
+    for each row and use a normalized row sum. For the categorical attributes only a concrete value is stored and mutated with
+    lower probability than the interval boundaries of numerical attributes.
+    Note:
+    Unfortunately many details of implementation were left open and some terms were not precisely defined, therefore some ideas 
+    from 'An evolutionary algorithm to discover quantitative association rules from huge databases without the need for 
+    an a priori discretization' were used but this again did not cover all the details.
+
+    Args:
+        db (pd.DataFrame): Database 
+        num_cat_attrs (Dict[str, bool]): Maps numerical attributes to true and categorical ones to false
+        num_sets (int): Number of itemsets to be generated
+        num_gens (int): Number of generations
+        population_size (int): Number of individuals used in each population
+        omega (float): Penalization factor for coverage
+        psi (float): Penalization factor for amplitude
+        mu (float): Rewarding factor for attribute size
+        selection_percentage (float, optional): Percentage of fittest individuals for the next generation. Defaults to 0.15.
+        recombination_probability (float, optional): Probability that the offspring inherits the genes from the other progenitor. Defaults to 0.5.
+        mutation_probability (float, optional): Mutation probability of numerical attributes. Defaults to 0.4.
+
+    Returns:
+        pd.DataFrame: Fittest itemsets, aswell as their subsets and support information, columns are ["itemsets","support"].
+    """
     def __update_counts(db: pd.DataFrame, marked_rows: Dict[int, bool], population: List[Individuum]) -> None:
         """Processes the population and updates the coverage and marked counts.
         """
@@ -362,7 +388,6 @@ def gar(db: pd.DataFrame, num_cat_attrs: Dict[str, bool], num_sets: int, num_gen
 
         __update_counts(db, marked_rows, population)
         chosen_one = max(population, key=lambda item: item.get_fitness())
-        print(chosen_one)
         _update_marked_records(db, marked_rows, chosen_one)
 
         fittest_itemsets.append(chosen_one)

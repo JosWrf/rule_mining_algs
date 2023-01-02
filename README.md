@@ -26,7 +26,6 @@ a framework of the different algorithm implementations is built.
 ## TODO
 
 ```
-- The Evolutionary Algorithm's result needs to be integrated in the rule generation framework
 - Implement ARM based Classification Algorithms
-- Might consider Spatial Association Rules
+- Might consider Association Rules over Spatial DBs
 ```
