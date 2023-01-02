@@ -4,7 +4,7 @@ import pandas as pd
 
 from algs.gar import (Gene, Individuum, _amplitude, _cross_over,
                       _generate_first_population, _get_fittest,
-                      _get_lower_upper_bound, _process, _update_marked_records)
+                      _get_lower_upper_bound, _process, _update_marked_records, gar)
 
 
 class TestGar:
@@ -118,3 +118,35 @@ class TestGar:
         _update_marked_records(self.data, marked, ind)
         new_marked = {0: True, 1: False, 2: False, 3: False, 4: True}
         assert marked == new_marked
+
+    def test_get_all_subsets(self):
+        genes2 = {"age": Gene("age", True, 25, 38, 0),
+                  "married": Gene("married", False, 1, 1, "yes"),
+                  "temperature": Gene("temperature", True, -10, 20, 15)}
+        ind = Individuum(genes2)
+        result = ind.get_all_subsets()
+        # All subsets but the empty subset
+        assert len(result) == 7
+        assert max(itemset.num_attrs() for itemset in result) == 3
+
+        genes1 = {"age": Gene("age", True, 25, 38, 0),
+                  "married": Gene("married", False, 1, 1, "yes")}
+        ind = Individuum(genes1)
+        result = ind.get_all_subsets()
+        assert len(result) == 3
+        assert max(itemset.num_attrs() for itemset in result) == 2
+
+    def test_to_tuple(self):
+        genes = {"temperature": Gene(
+            "temperature", True, -10, 25, 7), "age": Gene("age", True, 25, 38, 27)}
+        ind = Individuum(genes)
+        result = ind.to_tuple()
+        assert result == ("temperature = -10..25", "age = 25..38")
+
+    def test_gar(self):
+        self._setup()
+        result = gar(self.data, self.description, 3, 10, 3, 0.5, 0.4, 0.3)
+
+        assert result["support"].min() >= 0
+        assert result["support"].max() <= 1
+        assert "itemsets" in list(result.columns)

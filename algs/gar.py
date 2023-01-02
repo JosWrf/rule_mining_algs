@@ -122,8 +122,33 @@ class Individuum:
                     gene.value = gene.value if random.random(
                     ) < 0.75 else np.random.choice(db[name].to_numpy())
 
+    def get_all_subsets(self) -> List[Any]:
+        """Generates all subsets of the current itemset.
+
+        Returns:
+            List[Any]: List of all subsets.
+        """
+        seeds = []
+        for gene in self.items.values():
+            seeds = seeds + [Individuum({gene.name: gene})] + \
+                [Individuum({gene.name: gene}) + ind for ind in seeds]
+        return seeds
+
+    def to_tuple(self) -> Tuple[str]:
+        items = []
+        for gene in self.items.values():
+            if gene.is_numerical():
+                items.append(f"{gene.name} = {gene.lower}..{gene.upper}")
+            else:
+                items.append(f"{gene.name} = {gene.value}")
+        return tuple(items)
+
     def __repr__(self) -> str:
         return self.items.__repr__()
+
+    def __add__(self, other: object) -> object:
+        self.items.update(other.get_items())
+        return Individuum(self.items)
 
 
 def _get_lower_upper_bound(db: pd.DataFrame, num_cat_attrs: Dict[str, bool]) -> Dict[str, Tuple[float, float]]:
@@ -341,3 +366,13 @@ def gar(db: pd.DataFrame, num_cat_attrs: Dict[str, bool], num_sets: int, num_gen
         _update_marked_records(db, marked_rows, chosen_one)
 
         fittest_itemsets.append(chosen_one)
+
+    # Get all subsets of the itemsets and map into tuples to reuse the rule generation framework
+    final_itemsets = []
+    for itemset in fittest_itemsets:
+        final_itemsets.extend(itemset.get_all_subsets())
+    _process(db, marked_rows, final_itemsets)
+    # Stuff into df
+    final_itemsets_tuples = [{"itemsets": item.to_tuple(
+    ), "support": item.coverage / len(db)} for item in final_itemsets]
+    return pd.DataFrame(final_itemsets_tuples)
