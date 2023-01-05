@@ -254,12 +254,19 @@ def transitive_reduction_of_informative_basis(
         S = []  # Union of S_j
 
         # Determine the set of all fc_s that may be rhs of a rule
+        skip = {}
         for j in range(len(closure), mu + 1):
-            s_j = {fci: supp for fci,
-                   supp in FC_j[j].items() if closure < set(fci)}
+            if FC_j.get(j) == None:
+                skip[j] = True
+                s_j = {}
+            else:
+                s_j = {fci: supp for fci,
+                       supp in FC_j[j].items() if closure < set(fci)}
             S.append(s_j)
 
         for j in range(len(S)):
+            if skip.get(j):
+                continue
             for fci in S[j]:
                 fci_set = set(fci)
                 # Check whether there's no real subset in succ_g
