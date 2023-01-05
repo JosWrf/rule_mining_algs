@@ -104,11 +104,11 @@ class Individuum:
                     # Change the upper and lower bound of the interval
                     lower = db[name].min()
                     upper = db[name].max()
-                    width_delta = (upper - lower) / 11
+                    width_delta = (upper - lower) / 17
                     delta1 = random.uniform(0, width_delta)
                     delta2 = random.uniform(0, width_delta)
-                    gene.lower += delta1 - 1 if random.random() < 0.5 else 1
-                    gene.upper += delta2 - 1 if random.random() < 0.5 else 1
+                    gene.lower += delta1 * (-1 if random.random() < 0.5 else 1)
+                    gene.upper += delta2 * (-1 if random.random() < 0.5 else 1)
                     # All this mess ensures that the interval boundaries do not exceed DB [min, max]
                     gene.lower = max(lower, gene.lower)
                     gene.upper = min(upper, gene.upper)
@@ -203,7 +203,7 @@ def _generate_first_population(db: pd.DataFrame, population_size: int, interval_
         # Add two random attributes and then fill up with a coin toss for each attribute
         attrs = random.sample(items, 2)
         attrs = [itm for itm in items if itm not in attrs and random.random()
-                 >= 0.5] + attrs
+                 > 0.5] + attrs
         row = floor(random.uniform(0, len(db)-1))
         register = db.iloc[row]
 
@@ -234,6 +234,10 @@ def _process(db: pd.DataFrame, marked_rows: Dict[int, bool], population: List[In
         marked_rows (Dict[int, bool]): Rows that are already covered by some fittest itemset
         population (List[Individuum]): Current population
     """
+    for individual in population:
+        individual.coverage = 0
+        individual.marked = 0
+
     for row in range(len(db)):
         record = db.iloc[row]
         for individual in population:
@@ -357,8 +361,8 @@ def gar(db: pd.DataFrame, num_cat_attrs: Dict[str, bool], num_sets: int, num_gen
             individual.fitness = _get_fitness(individual.coverage / len(db), individual.marked/len(
                 db), _amplitude(intervals, individual), individual.num_attrs() / len(num_cat_attrs))
 
-    def _get_fitness(coverage, marked, amplitude, num_attr) -> float:
-        return coverage - marked*omega - amplitude*psi + num_attr*mu
+    def _get_fitness(coverage: float, marked: float, amplitude: float, num_attr: float) -> float:
+        return coverage - marked*omega - amplitude*psi + num_attr*mu*coverage
 
     fittest_itemsets = []
     # Store which rows of the DB were marked
@@ -388,6 +392,9 @@ def gar(db: pd.DataFrame, num_cat_attrs: Dict[str, bool], num_sets: int, num_gen
 
         __update_counts(db, marked_rows, population)
         chosen_one = max(population, key=lambda item: item.get_fitness())
+        max_supp = max(population, key=lambda item: item.coverage)
+        print(chosen_one, chosen_one.coverage, chosen_one.fitness)
+        print(max_supp, max_supp.coverage, max_supp.fitness)
         _update_marked_records(db, marked_rows, chosen_one)
 
         fittest_itemsets.append(chosen_one)
