@@ -1,8 +1,9 @@
 from typing import Any, Callable, Dict
 from algs.apriori import a_close
 from algs.fp_tree import fp_growth
+from algs.gar import gar
 from algs.hclique import hclique
-from algs.quantitative import quantitative_itemsets 
+from algs.quantitative import quantitative_itemsets
 from algs.rule_gen import generate_rules, minimal_non_redundant_rules
 import pandas as pd
 
@@ -10,8 +11,10 @@ import pandas as pd
 class NoMiningAlgorithmException(Exception):
     pass
 
+
 class WrongArgumentException(Exception):
     pass
+
 
 class NotAValidCallableException(Exception):
     pass
@@ -20,6 +23,7 @@ class NotAValidCallableException(Exception):
 class Model:
     """Sets up a pipeline to transform the data a set of association rules.
     """
+
     def __init__(
         self, transformer: Callable, itemset_miner: Callable, rule_miner: Callable
     ) -> None:
@@ -53,11 +57,13 @@ class Model:
             will be passed to the arguments having the same name. 
         """
         if self.args.get(func) == None:
-            raise NotAValidCallableException("func arg must be a function that's been set in the constructor.")
+            raise NotAValidCallableException(
+                "func arg must be a function that's been set in the constructor.")
         names = func.__code__.co_varnames[:func.__code__.co_argcount]
         for name in args.keys():
             if name not in names:
-                raise WrongArgumentException(f"{func.__name__} does not have an argument named {name}")
+                raise WrongArgumentException(
+                    f"{func.__name__} does not have an argument named {name}")
         self.args[func] = args
 
     def run(self, data: pd.DataFrame) -> pd.DataFrame:
@@ -78,6 +84,7 @@ class Model:
 class StandardMiner(Model):
     """Uses the fp_growth algorithm to mine frequent itemsets.
     """
+
     def __init__(self, transformer: Callable = None) -> None:
         super().__init__(transformer, fp_growth, generate_rules)
 
@@ -85,6 +92,7 @@ class StandardMiner(Model):
 class HyperCliqueMiner(Model):
     """Uses the hyperclique miner for mining frequent itemsets.
     """
+
     def __init__(self, transformer: Callable = None) -> None:
         super().__init__(transformer, hclique, generate_rules)
 
@@ -92,6 +100,7 @@ class HyperCliqueMiner(Model):
 class QuantitativeMiner(Model):
     """Uses the quantitative miner with dynamic interval boundaries.
     """
+
     def __init__(self) -> None:
         super().__init__(None, quantitative_itemsets, generate_rules)
 
@@ -99,5 +108,14 @@ class QuantitativeMiner(Model):
 class MinimalNonRedudantMiner(Model):
     """Determines frequent closed itemsets and then minimal non redundant rules.
     """
+
     def __init__(self, transformer: Callable = None) -> None:
         super().__init__(transformer, a_close, minimal_non_redundant_rules)
+
+
+class GeneticAlgorithmMiner(Model):
+    """Uses a genetic algorithm to discover itemsets.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(None, gar, generate_rules)
