@@ -270,13 +270,14 @@ def _amplitude(intervals: Dict[str, Tuple[float, float]], ind: Individuum) -> fl
     return avg_amp / count if count != 0 else 0
 
 
-def _cross_over(population: List[Individuum], probability: float) -> List[Individuum]:
+def _cross_over(population: List[Individuum], probability: float, number_offspring: int) -> List[Individuum]:
     """Crossover genes of the individuals and produce two offsprings, for each pair of
     randomly sampled progenitors.
 
     Args:
         population (List[Individuum]): Progenitors that are crossed at random
         probability (float): Crossover probability
+        number_offspring (int): Number of remaining offsprings to generate
 
     Returns:
         List[Individuum]: Offspring pair for each crossover event. It has double the size of 
@@ -284,7 +285,7 @@ def _cross_over(population: List[Individuum], probability: float) -> List[Indivi
     """
     recombinations = []
 
-    for i in range(len(population)):
+    for i in range(number_offspring):
         progenitors = random.sample(population, k=2)
         offspring = progenitors[0].crossover(progenitors[1], probability)
         recombinations.extend(offspring)
@@ -293,19 +294,19 @@ def _cross_over(population: List[Individuum], probability: float) -> List[Indivi
 
 
 def _get_fittest(population: List[Individuum], selection_percentage: float) -> Tuple[List[Individuum], List[Individuum]]:
-    """Determines the selection percentage fittest individuals and returns them as first
-    element of the tuple. The other tuple element contains the remaining individuals.
+    """Determines the selection percentage fittest individuals.
+    Note: An alternative would be to just take the fittest one and then randomly sample.
 
     Args:
         population (List[Individuum]): Individuals of the current generation.
         selection_percentage (float): Percentage of how much individuals of the current generation pass on to the next.
 
     Returns:
-        Tuple[List[Individuum], List[Individuum]]: Fittest individuals, Remaining ones being subject to the crossover operator
+        List[Individuum]: Fittest individuals, Remaining ones being subject to the crossover operator
     """
     population.sort(key=lambda x: x.fitness, reverse=True)
     fittest = floor(selection_percentage*len(population) + 1)
-    return (population[:fittest], population[fittest:])
+    return population[:fittest]
 
 
 def _update_marked_records(db: pd.DataFrame, marked_records: Dict[int, bool], chosen: Individuum) -> None:
@@ -377,9 +378,10 @@ def gar(db: pd.DataFrame, num_cat_attrs: Dict[str, bool], num_sets: int, num_gen
             for individual in population:
                 individual.fitness = _get_fitness(individual.coverage / len(db), individual.marked/len(
                     db), _amplitude(intervals, individual), individual.num_attrs() / len(num_cat_attrs))
-            next_population, remaining = _get_fittest(
+            next_population = _get_fittest(
                 population, selection_percentage)
-            offsprings = _cross_over(remaining, recombination_probability)
+            offsprings = _cross_over(population, recombination_probability, len(
+                population)-len(next_population))
             __update_counts(db, marked_rows, offsprings)
             offsprings = [offsprings[i] if offsprings[i].get_fitness(
             ) > offsprings[i+1].get_fitness() else offsprings[i+1] for i in range(0, len(offsprings), 2)]
@@ -392,9 +394,6 @@ def gar(db: pd.DataFrame, num_cat_attrs: Dict[str, bool], num_sets: int, num_gen
 
         __update_counts(db, marked_rows, population)
         chosen_one = max(population, key=lambda item: item.get_fitness())
-        max_supp = max(population, key=lambda item: item.coverage)
-        print(chosen_one, chosen_one.coverage, chosen_one.fitness)
-        print(max_supp, max_supp.coverage, max_supp.fitness)
         _update_marked_records(db, marked_rows, chosen_one)
 
         fittest_itemsets.append(chosen_one)

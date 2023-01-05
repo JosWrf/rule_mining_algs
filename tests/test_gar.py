@@ -60,12 +60,12 @@ class TestGar:
         population = _generate_first_population(self.data, 5, intervals)
         for itm in population:
             itm.fitness = random.random()
-        fittest, remaining = _get_fittest(population, 0.2)
-        # 0.2*5 + 1 = 2
+        fittest = _get_fittest(population, 0.2)
+        # 5*0.2+1 = 2
         assert len(fittest) == 2
-        assert len(remaining) == 3
         # Check that only the fittest elements were selected for the next generation
-        assert all(x.fitness <= fittest[-1].fitness for x in remaining)
+        assert all(x.fitness <= fittest[-1].fitness for x in sorted(
+            population, key=lambda y: y.fitness, reverse=True)[1:])
 
     def test_gene_crossover(self):
         genes1 = {"age": Gene("age", True, 27, 34, 30),
@@ -94,11 +94,12 @@ class TestGar:
         self._setup()
         intervals = _get_lower_upper_bound(self.data, self.description)
         population = _generate_first_population(self.data, 5, intervals)
-        result = _cross_over(population, 0.5)
+        num_remaining = 2
+        result = _cross_over(population, 0.5, num_remaining)
         # Every item should be an idividuum and there should be 2 offsprings
         # for every element in the population
         assert all(type(x) == Individuum for x in result)
-        assert len(result) == 2*len(population)
+        assert len(result) == 2*num_remaining
 
     def test_mutate(self):
         self._setup()
