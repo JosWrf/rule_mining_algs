@@ -42,6 +42,14 @@ class TestRuleGeneration:
         assert all(len(antecedent) <=
                    2 for antecedent in result["antecedents"])
 
+    def test_rule_gen_w_ignore(self):
+        itemsets = pd.DataFrame([{"itemsets": (1, 2), "support": 0.2, "ignore": True}, {
+            "itemsets": (3, 5), "support": 2/3, "ignore": False}, {"itemsets": (3,), "support": 2/3, "ignore": True},
+            {"itemsets": (5,), "support": 0.5, "ignore": False}])
+        result = generate_rules(itemsets, 0.0)
+        # The 1-itemsets generate no rules and itemset {1,2} should be ignored
+        assert len(result) == 2
+
 
 class TestMinimalNonRedundantRules:
     def _setup_fcs(self, min_support: float = 2/6) -> None:

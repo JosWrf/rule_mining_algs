@@ -100,6 +100,10 @@ def generate_rules(frequent_itemsets: DataFrame, min_conf: float = 0.5) -> DataF
     rules = []
     for itemsets in frequent_itemsets.iterrows():
         itemset = itemsets[1]["itemsets"]
+        # Some algorithms prune itemsets, but their support information would still be
+        # required. This itemsets are added to the df but ignore is True for them.
+        if "ignore" in frequent_itemsets.columns and itemsets[1]["ignore"] == True:
+            continue
         if len(itemset) >= 2:
             consequents = __get_1_item_consequents(itemset)
             for rule in __ap_genrules(itemsets[1], consequents, 1):

@@ -228,10 +228,10 @@ class Item:
             __o.lower == self.lower and __o.upper == self.upper
         ):  # Same interval -> categorical
             return __o
-        if self.lower == __o.lower:  # [5,8] - [5,6] = [7,8]
-            return Item(self.name, __o.lower + 1, self.upper)
-        else:  # [5,8] - [7,8] = [5,6]
-            return Item(self.name, self.lower, __o.upper - 1)
+        if self.lower == __o.lower:  # [5,8] - [5,6] = [6,8]
+            return Item(self.name, __o.upper, self.upper)
+        else:  # [5,8] - [7,8] = [5,7]
+            return Item(self.name, self.lower, __o.lower)
 
     def __hash__(self) -> int:
         return hash(self.name)
@@ -564,7 +564,7 @@ def _is_specialization_interesting(
                 new_items[(specialization[i],)]
                 / frequent_itemsets[(generalization[i],)]
             )
-        if new_items[specialization] / n / exp_supp < R:
+        if (new_items[specialization] / n / exp_supp) < R:
             return False
 
     return True
@@ -607,6 +607,8 @@ def remove_r_uninteresting_itemsets(
 
     n = len(db)
     r_interesting_itemsets = {}
+    elements_to_remove = {}
+
     for item, support in frequent_itemsets.items():
         partial_order = get_generalizations_specializations(
             frequent_itemsets, item)
@@ -619,12 +621,13 @@ def remove_r_uninteresting_itemsets(
                 sub_intervals, gen, sub_items, frequent_itemsets, R, supp / n, n
             ):
                 interesting = False
+                elements_to_remove[item] = support
                 break
 
         if interesting:
             r_interesting_itemsets[item] = support
 
-    return r_interesting_itemsets
+    return r_interesting_itemsets, elements_to_remove
 
 
 def quantitative_itemsets(
@@ -675,7 +678,7 @@ def quantitative_itemsets(
         k += 1
 
     if R != 0:
-        frequent_items = remove_r_uninteresting_itemsets(
+        frequent_items, to_remove = remove_r_uninteresting_itemsets(
             encoded_db, frequent_items, R)
 
     # Map resulting itemsets back to their (interval) values
@@ -692,7 +695,25 @@ def quantitative_itemsets(
             else:
                 items.append(f"{item.name} = {lower[0]}..{upper[1]}")
         itemsets.append({"itemsets": tuple(items),
-                        "support": support / len(db)})
+                        "support": support / len(db),
+                         "ignore": False})
+
+    # Build in the items that shall be ignored
+    if R != 0:
+        for itemset, support in to_remove.items():
+            items = []
+            for item in itemset:
+                vals = mappings[item.name]
+                lower = vals[item.lower]
+                upper = vals[item.upper]
+                if discretization[item.name] == 0:
+                    assert lower == upper
+                    items.append(f"{item.name} = {lower}")
+                else:
+                    items.append(f"{item.name} = {lower[0]}..{upper[1]}")
+            itemsets.append({"itemsets": tuple(items),
+                            "support": support / len(db),
+                             "ignore": True})
 
     df = pd.DataFrame(itemsets)
     return df
