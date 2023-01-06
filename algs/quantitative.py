@@ -572,7 +572,7 @@ def _is_specialization_interesting(
 
 def remove_r_uninteresting_itemsets(
     db: DataFrame, frequent_itemsets: Dict[Tuple[Item], int], R: float
-) -> Dict[Tuple[Item], int]:
+) -> Tuple[Dict[Tuple[Item], int], Dict[Tuple[Item], int]]:
     """Uses the definition of R-interestingness of itemsets in the context of
     quantitative association rules to prune itemsets, that do not fullfill it.
 
@@ -582,7 +582,8 @@ def remove_r_uninteresting_itemsets(
         R (float): Interest Level
 
     Returns:
-        Dict[Tuple[Item], int]: Frequent and R-interesting itemsets.
+        Tuple[Dict[Tuple[Item], int], Dict[Tuple[Item], int]]: Position[0]: Frequent and R-interesting itemsets.
+        Position[1]: Itemsets that are not R-interesting.
     """
 
     def _is_r_interesting(generalization: Tuple[Item], itemset: Tuple[Item]) -> bool:
@@ -698,7 +699,7 @@ def quantitative_itemsets(
                         "support": support / len(db),
                          "ignore": False})
 
-    # Build in the items that shall be ignored
+    # Weave in the items that shall be ignored
     if R != 0:
         for itemset, support in to_remove.items():
             items = []
