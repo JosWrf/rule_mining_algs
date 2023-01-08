@@ -31,7 +31,7 @@ a framework of the different algorithm implementations is built.
 - Rule_Miners: generate_rules(Standard algorithm to generate rules from itemsets),
   min_redundant_rules(only usable with a_close itemset miner)
 
-<center><strong>Example for a transaction DB</strong></center>
+<center><strong>Example for a dataset with a single attribute</strong></center>
 
 ```python
 from algs.models import StandardMiner
@@ -48,7 +48,7 @@ m.set_args(m.rule_miner, {"min_conf": 0.5})
 output = m.run(data_df)
 ```
 
-<center><strong>Example for a DB containing numeric attributes</strong></center>
+<center><strong>Example for a DB containing several categorical attributes</strong></center>
 
 ```python
 from algs.data import load_shroom_data
