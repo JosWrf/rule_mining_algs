@@ -148,17 +148,17 @@ def _static_discretization(
 
 
 def cluster_interval_data(db: DataFrame, attr_threshold: Dict[Tuple[str], float]) -> DataFrame:
-    """Clusters interval data, using the birch clustering algorithm as described in 
+    """Clusters interval data, using the birch clustering algorithm as described in
     'Association Rules over Interval Data'. The threshold is the upper bound of the
     radius of subclusters. Further the clusters are described by their smallest bounding box.
 
     Args:
         db (DataFrame): Dataset, to mine quantitative association rules from
-        attr_threshold (Dict[Tuple[str], float]): Maps attribute (sets) to their radius threshold, which 
+        attr_threshold (Dict[Tuple[str], float]): Maps attribute (sets) to their radius threshold, which
         in turn determines the cluster quality
 
     Returns:
-        DataFrame: One column for each attribute, value pair of all attributes (after clustering). 
+        DataFrame: One column for each attribute, value pair of all attributes (after clustering).
         In the case of clusters the values are bounding boxes to represent the cluster.
     """
     data = db.copy(deep=True)
@@ -475,6 +475,9 @@ def get_generalizations_specializations(
                 items[i] == itemset[i]
             ):  # Having the same boundaries, implies a categorical attribute
                 continue
+            elif items[i].lower == items[i].upper and itemset[i].lower == itemset[i].upper and items[i].lower != itemset[i].lower:
+                attrs = False
+                break
             elif itemset[i].is_generalization(items[i]):
                 found_spec = 1
             elif itemset[i].is_specialization(items[i]):
@@ -492,6 +495,8 @@ def get_generalizations_specializations(
 
 def _get_subintervals(
     db: DataFrame, specializations: Dict[Tuple[Item], int], itemset: Tuple[int]
+
+
 ) -> Tuple[Set[Tuple[Item]], Dict[Tuple[Item], int]]:
     """Calculates the difference of an itemset to all its specializations.
 
