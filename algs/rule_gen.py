@@ -415,11 +415,11 @@ def __compare_attribute(row: Series, item: str) -> bool:
     if item.startswith("{"):
         attrlist = item[1:item.find("}")]
         names = attrlist.split(",")
-        lower_boundaries = item[item.find(
-            "["): item.find("]")].split(",").strip()
+        lower_boundaries = [s.strip() for s in item[item.find(
+            "[") + 1: item.find("]")].split(",")]
         second_interval = item[item.find("x")+2]
-        upper_boundaries = second_interval[: second_interval.find(
-            "]")].split(",").strip()
+        upper_boundaries = [s.strip() for s in second_interval[: second_interval.find(
+            "]")].split(",")]
 
         for i in range(len(names)):
             name = names[i]
@@ -428,7 +428,7 @@ def __compare_attribute(row: Series, item: str) -> bool:
         return True
 
     else:
-        attributes = [attribute.strip for attribute in item.split("=")]
+        attributes = [attribute.strip() for attribute in item.split("=")]
         name = attributes[0]
         # Numeric attributes: x = 123..456
         if attributes[1].find("..") >= 0:
