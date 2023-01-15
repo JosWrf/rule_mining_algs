@@ -3,7 +3,7 @@ from mlxtend.preprocessing import TransactionEncoder
 import pytest
 
 from algs.apriori import a_close, apriori
-from algs.rule_gen import _compare_to_mined_rules, generate_rules, generic_basis, get_classification_rules, prune_by_improvement, transitive_reduction_of_informative_basis
+from algs.rule_gen import _compare_to_mined_rules, _get_proper_subsets, generate_rules, generic_basis, get_classification_rules, prune_by_improvement, transitive_reduction_of_informative_basis
 
 
 class TestRuleGeneration:
@@ -78,6 +78,14 @@ class TestImprovement:
         # Prune BE -> C
         rules = _compare_to_mined_rules(rules, 0.002)
         assert len(rules) == 2  # E -> C, B -> C
+
+    def test_get_proper_subsets(self):
+        rule = pd.DataFrame(columns=["antecedents", "consequents"],
+                            data=[[("A", "B", "C"), ("D",)]])
+        result = _get_proper_subsets(rule)
+        # (2**3 - 2) * 2 = 12 -> Every powerset for the antecedents
+        # and then the consequent is added to each subset
+        assert len(result) == 12
 
 
 class TestMinimalNonRedundantRules:
