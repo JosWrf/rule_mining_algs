@@ -325,7 +325,7 @@ def prune_by_improvement(db: DataFrame, rules: DataFrame, minimp: float = 0.002)
     """
     potential_rules = _compare_to_mined_rules(rules, minimp)
     subsets = _get_proper_subsets(rules)
-    supports = _get_subset_supports(db, rules, subsets)
+    supports = _get_subset_supports(db, subsets)
     return _prune_by_improvement(potential_rules, supports, minimp)
 
 

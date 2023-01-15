@@ -25,7 +25,8 @@ class TestDiscretization:
     def test_partitioning(self):
         self._setup()
         mappings, db = discretize_values(
-            self.data.copy(deep=True), {"age": 4, "married": 0, "num_cars": 0}, False
+            self.data.copy(deep=True), {
+                "age": 4, "married": 0, "num_cars": 0}, False
         )
         assert len(mappings["age"]) == 4
         assert len(mappings["married"]) == 2
@@ -33,12 +34,14 @@ class TestDiscretization:
 
         # The database should only contain values that are stored as keys in the dict
         # For non interval values we can check the original db against the mapping values
-        assert set(db["married"].values.flatten()) == set(mappings["married"].keys())
+        assert set(db["married"].values.flatten()) == set(
+            mappings["married"].keys())
         assert set(self.data["married"].values.flatten()) == set(
             mappings["married"].values()
         )
         assert set(db["age"].values.flatten()) == set(mappings["age"].keys())
-        assert set(db["num_cars"].values.flatten()) == set(mappings["num_cars"].keys())
+        assert set(db["num_cars"].values.flatten()) == set(
+            mappings["num_cars"].keys())
         assert set(self.data["num_cars"].values.flatten()) == set(
             mappings["num_cars"].values()
         )
@@ -46,7 +49,8 @@ class TestDiscretization:
     def test_find_frequent_items(self):
         self._setup()
         mappings, db = discretize_values(
-            self.data.copy(deep=True), {"age": 4, "married": 0, "num_cars": 0}, False
+            self.data.copy(deep=True), {
+                "age": 4, "married": 0, "num_cars": 0}, False
         )
         result = find_frequent_items(
             mappings,
@@ -57,7 +61,8 @@ class TestDiscretization:
         )
         assert len(result) == 10
         assert (Item("age", 0, 0),) in result  # 2 persons between 23-26
-        assert (Item("age", 1, 1),) not in result  # only 1 person between 27-20
+        # only 1 person between 27-20
+        assert (Item("age", 1, 1),) not in result
         # Check whether intervals were merged
         assert (Item("age", 0, 2),) in result
         assert (Item("age", 1, 3),) in result
@@ -66,7 +71,8 @@ class TestDiscretization:
         assert (Item("married", 0, 0),) in result
         assert (Item("married", 1, 1),) in result
 
-        assert (Item("num_cars", 0, 0),) not in result  # only one person w/o car
+        # only one person w/o car
+        assert (Item("num_cars", 0, 0),) not in result
         assert (Item("num_cars", 2, 2),) in result  # 2 persons with 2 cars
 
     def test_quantitative_itemsets(self):
@@ -122,7 +128,8 @@ class TestDiscretization:
         result = _get_subintervals(db, specializations, itemset)
 
         assert (Item("age", 0, 1),) in result[0]  # [0,2] - [1,2] = [0,1]
-        assert {(Item("age", 0, 1),): 3} == result[1]  # 3 of 5 persons in age[0,1]
+        # 3 of 5 persons in age[0,1]
+        assert {(Item("age", 0, 1),): 3} == result[1]
         assert (Item("age", 1, 2)) not in result[
             0
         ]  # [0,2] - [1,1] = [1,2], [0,1] so we drop it
@@ -130,7 +137,8 @@ class TestDiscretization:
     def test__static_discretization(self):
         self._setup()
         mappings, db = discretize_values(
-            self.data.copy(deep=True), {"age": 4, "married": 0, "num_cars": 0}, False
+            self.data.copy(deep=True), {
+                "age": 4, "married": 0, "num_cars": 0}, False
         )
         result = _static_discretization(db, mappings)
         # Numer of rows should not have changed
@@ -144,8 +152,8 @@ class TestDiscretization:
 
         assert result.loc[0, "married = no"] == 1
         assert result.loc[0, "married = yes"] == 0
-        assert result.loc[0, "age = <23..26>"] == 1
-        assert result.loc[0, "age = <27..30>"] == 0
+        assert result.loc[0, "age = 23..26"] == 1
+        assert result.loc[0, "age = 27..30"] == 0
 
     def test_static_discretization(self):
         self._setup()
@@ -160,7 +168,8 @@ class TestDiscretization:
 
     def test_cluster_interval_data(self):
         self._setup()
-        attr_thresholds = {("age",): 5} # Causes two clusters of age to be built
+        # Causes two clusters of age to be built
+        attr_thresholds = {("age",): 5}
         result = cluster_interval_data(self.data, attr_thresholds)
         # Number of row should not have changed
         assert len(result) == 5
@@ -169,8 +178,10 @@ class TestDiscretization:
         assert len(result.columns) == 7
 
         # Check the whether the cluster inclusion was correctly encoded
-        result["{age} = [23] x [29]"].values.tolist() == [True, True, True, False, False]
-        result["{age} = [34] x [38]"].values.tolist() == [False, False, False, True, True]
+        result["{age} = [23] x [29]"].values.tolist() == [True, True,
+                                                          True, False, False]
+        result["{age} = [34] x [38]"].values.tolist() == [False, False,
+                                                          False, True, True]
 
         # Check if old attribute was removed
         with pytest.raises(KeyError):
@@ -178,9 +189,10 @@ class TestDiscretization:
 
     def test_cluster_interval_tuple(self):
         self._setup()
-        attr_thresholds = {("age", "num_cars"): 5} 
+        attr_thresholds = {("age", "num_cars"): 5}
         result = cluster_interval_data(self.data, attr_thresholds)
-        result.drop(labels=["married = no", "married = yes"], axis=1, inplace=True)
+        result.drop(labels=["married = no", "married = yes"],
+                    axis=1, inplace=True)
 
         with pytest.raises(KeyError):
             result["age"]
@@ -189,4 +201,5 @@ class TestDiscretization:
             result["num_cars"]
 
         # Test presence of clustered attributes
-        assert any(name.startswith("{age, num_cars}") for name in result.columns)
+        assert any(name.startswith("{age, num_cars}")
+                   for name in result.columns)

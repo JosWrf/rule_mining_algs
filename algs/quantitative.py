@@ -133,7 +133,7 @@ def _static_discretization(
             name = ""
             val = mapped_vals[attribute][row[attribute]]
             if type(val) == tuple:
-                name = f"{attribute} = <{val[0]}..{val[1]}>"
+                name = f"{attribute} = {val[0]}..{val[1]}"
             else:
                 name = f"{attribute} = {val}"
 

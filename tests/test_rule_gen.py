@@ -3,6 +3,7 @@ from mlxtend.preprocessing import TransactionEncoder
 import pytest
 
 from algs.apriori import a_close, apriori
+from algs.quantitative import static_discretization
 from algs.rule_gen import _compare_to_mined_rules, _get_proper_subsets, _get_subset_supports, generate_rules, generic_basis, get_classification_rules, prune_by_improvement, transitive_reduction_of_informative_basis
 
 
@@ -98,6 +99,20 @@ class TestImprovement:
                 assert count == 0
             else:
                 assert count == 1
+
+    def test_prune_by_improvement(self):
+        data = pd.DataFrame()
+        data["age"] = [23, 25, 29, 34, 38]
+        data["married"] = ["no", "yes", "no", "yes", "yes"]
+        data["num_cars"] = [1, 1, 0, 2, 2]
+        df = static_discretization(
+            data, {"age": 2, "married": 0, "num_cars": 0}, True)
+        items = apriori(df)
+        rules = get_classification_rules(generate_rules(items), "married")
+        # 6 rules that have no sub_rule
+        # All other rules are pruned
+        result = prune_by_improvement(data, rules)
+        assert len(result) == 6
 
 
 class TestMinimalNonRedundantRules:
