@@ -311,10 +311,50 @@ def get_classification_rules(rules: DataFrame, label: str) -> DataFrame:
 
 
 def prune_by_improvement(db: DataFrame, rules: DataFrame, minimp: float = 0.002) -> DataFrame:
+    """Calculates the improvement for all rules and prunes any rules that do not 
+    fulfill the minimp constraint. It also finds all the subrules that are not conatained 
+    within rules to stick to the definition of improvement.
+
+    Args:
+        db (DataFrame): Database the rules were minded from
+        rules (DataFrame): Mined rules
+        minimp (float, optional): Minimum improvement threshold. Defaults to 0.002.
+
+    Returns:
+        DataFrame: Pruned rule set containing only productive rules.
+    """
     potential_rules = _compare_to_mined_rules(rules, minimp)
     subsets = _get_proper_subsets(rules)
-    # Count support for each of them subsets
     supports = _get_subset_supports(db, rules, subsets)
+    return _prune_by_improvement(potential_rules, supports, minimp)
+
+
+def _prune_by_improvement(rules: DataFrame, support_info: Dict[Tuple[int], Any], minimp: float) -> DataFrame:
+    """Uses all the support information stored in support info to calculate the max confidence of any 
+    subrule for all the rules in the rules DataFrame.
+
+    Args:
+        rules (DataFrame): Mined rules
+        support_info (Dict[Tuple[int], Any]): Information required to calculate by the improvement defintion
+        minimp (float): Minimum improvement threshold
+
+    Returns:
+        DataFrame: All rules with the unproductive rules being pruned
+    """
+    drop_rows = []
+    for idx, row in rules.iterrows():
+        rule = row["antecedents"]
+        items = sorted(rule)
+        itemsets = list(chain.from_iterable(combinations(
+            items, r) for r in range(1, len(items))))
+        for itemset in itemsets:
+            ant_sup = support_info[itemset]
+            cons_sup = support_info[itemset + row["consequents"]]
+            if row["confidence"] - cons_sup / ant_sup < minimp:
+                drop_rows.append(idx)
+                break
+
+    return rules.drop(index=drop_rows)
 
 
 def _compare_to_mined_rules(rules: DataFrame, minimp: float) -> DataFrame:
