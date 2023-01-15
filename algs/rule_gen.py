@@ -457,7 +457,7 @@ def __compare_attribute(row: Series, item: str) -> bool:
         names = attrlist.split(",")
         lower_boundaries = [s.strip() for s in item[item.find(
             "[") + 1: item.find("]")].split(",")]
-        second_interval = item[item.find("x")+2]
+        second_interval = item[item.find("x")+3:]
         upper_boundaries = [s.strip() for s in second_interval[: second_interval.find(
             "]")].split(",")]
 
