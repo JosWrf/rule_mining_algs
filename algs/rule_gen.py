@@ -307,3 +307,42 @@ def get_classification_rules(rules: DataFrame, label: str) -> DataFrame:
         rules["consequents"].apply(lambda x: len(
             x) == 1 and x[0].startswith(label))
     ]
+
+
+def prune_by_improvement(db: DataFrame, rules: DataFrame, minimp: float = 0.002) -> DataFrame:
+    # 1. Prune rules that have witnesses in the returned ruleset
+    potential_rules = _compare_to_mined_rules(rules, minimp)
+
+
+def _compare_to_mined_rules(rules: DataFrame, minimp: float) -> DataFrame:
+    """Checks the improvement constraint for the set of mined rules by searching for 
+    rules, whose antecedents are real subsets.
+
+    Args:
+        rules (DataFrame): Set of mined rules, with a single consequent
+        minimp (float): Minimum improvement threshold
+
+    Raises:
+        Exception: When more than one attribute is present in the consequent an exception is raised.
+
+    Returns:
+        DataFrame: Pruned ruleset using the above condition.
+    """
+    drop_rows = []
+
+    for idx, row in rules.iterrows():
+        if len(row["consequents"]) > 1:
+            raise Exception("Only a single attribute as antecedent allowed.")
+        rule_items = set(row["antecedents"] + row["consequents"])
+        rule_conf = row["confidence"]
+        for idx2, other_row in rules.iterrows():
+            if idx == idx2:
+                continue
+            other_items = set(
+                other_row["antecedents"] + other_row["consequents"])
+            other_conf = row["confidence"]
+
+            if other_items < rule_items and rule_conf - other_conf < minimp:
+                drop_rows.append(idx)
+
+    return rules.drop(index=drop_rows)

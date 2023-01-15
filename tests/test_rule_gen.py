@@ -1,8 +1,9 @@
 import pandas as pd
 from mlxtend.preprocessing import TransactionEncoder
+import pytest
 
 from algs.apriori import a_close, apriori
-from algs.rule_gen import generate_rules, generic_basis, transitive_reduction_of_informative_basis
+from algs.rule_gen import _compare_to_mined_rules, generate_rules, generic_basis, get_classification_rules, prune_by_improvement, transitive_reduction_of_informative_basis
 
 
 class TestRuleGeneration:
@@ -49,6 +50,34 @@ class TestRuleGeneration:
         result = generate_rules(itemsets, 0.0)
         # The 1-itemsets generate no rules and itemset {1,2} should be ignored
         assert len(result) == 2
+
+
+class TestImprovement:
+    def _setup(self) -> None:
+        data = [  # Data Mining and Analysis:Fundamental Concepts and Algorithms Contents Table 12.1
+            ["A", "B", "D", "E"],
+            ["B", "C", "E"],
+            ["A", "B", "D", "E"],
+            ["A", "B", "C", "E"],
+            ["A", "B", "C", "D", "E"],
+            ["B", "C", "D"]
+        ]
+        te = TransactionEncoder()
+        te_ary = te.fit_transform(data)
+        self.transactions = pd.DataFrame(te_ary, columns=te.columns_)
+        frequent_items = apriori(self.transactions, 0.5)
+        self.rules = generate_rules(frequent_items, 0.6)
+
+    def test__compare_to_mined_rules(self):
+        self._setup()
+        rules = get_classification_rules(self.rules, "C")
+        # Only a single item in the consequent allowed
+        with pytest.raises(Exception) as e:
+            prune_by_improvement(self.transactions, self.rules)
+
+        # Prune BE -> C
+        rules = _compare_to_mined_rules(rules, 0.002)
+        assert len(rules) == 2  # E -> C, B -> C
 
 
 class TestMinimalNonRedundantRules:
