@@ -371,22 +371,27 @@ def _compare_to_mined_rules(rules: DataFrame, minimp: float) -> DataFrame:
     Returns:
         DataFrame: Pruned ruleset using the above condition.
     """
-    drop_rows = []
+    drop_rows = set()
 
-    for idx, row in rules.iterrows():
+    indices = list(rules.index)
+    for idx in range(len(indices)):
+        if indices[idx] in drop_rows:
+            continue
+        row = rules.loc[[indices[idx]]].iloc[0]
         if len(row["consequents"]) > 1:
             raise Exception("Only a single attribute as antecedent allowed.")
         rule_items = set(row["antecedents"] + row["consequents"])
         rule_conf = row["confidence"]
-        for idx2, other_row in rules.iterrows():
-            if idx == idx2:
-                continue
+        for idx2 in range(idx+1, len(indices)):
+            other_row = rules.loc[[indices[idx2]]].iloc[0]
             other_items = set(
                 other_row["antecedents"] + other_row["consequents"])
-            other_conf = row["confidence"]
+            other_conf = other_row["confidence"]
 
             if other_items < rule_items and rule_conf - other_conf < minimp:
-                drop_rows.append(idx)
+                drop_rows.add(indices[idx])
+            elif rule_items < other_items and other_conf - rule_conf < minimp:
+                drop_rows.add(indices[idx2])
 
     return rules.drop(index=drop_rows)
 
