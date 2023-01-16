@@ -234,17 +234,17 @@ def _process(db: pd.DataFrame, marked_rows: Dict[int, bool], population: List[In
         marked_rows (Dict[int, bool]): Rows that are already covered by some fittest itemset
         population (List[Individuum]): Current population
     """
+    def __match(record: pd.Series) -> None:
+        for individual in population:
+            if individual.matches(record):
+                individual.coverage += 1
+                individual.marked += 1 if marked_rows[record.name] else 0
+
     for individual in population:
         individual.coverage = 0
         individual.marked = 0
 
-    for row in range(len(db)):
-        record = db.iloc[row]
-        for individual in population:
-            if individual.matches(record):
-                individual.coverage += 1
-                individual.marked += 1 if marked_rows[row] else 0
-
+    db.apply(__match, axis=1)
 
 def _amplitude(intervals: Dict[str, Tuple[float, float]], ind: Individuum) -> float:
     """Calculates the average amplitude over all numerical attributes.
@@ -318,11 +318,10 @@ def _update_marked_records(db: pd.DataFrame, marked_records: Dict[int, bool], ch
         marked_records (Dict[int, bool]): Stores for each record whether its already marked
         chosen (Individuum): The fittest itemset of the fully evolved population
     """
-    for row in range(len(db)):
-        record = db.iloc[row]
-        if chosen.matches(record):
-            marked_records[row] = True
+    def __update_marks(record: pd.Series) -> None:
+        marked_records[record.name] = chosen.matches(record) or marked_records[record.name]
 
+    db.apply(__update_marks, axis=1)
 
 def gar(db: pd.DataFrame, num_cat_attrs: Dict[str, bool], num_sets: int, num_gens: int, population_size: int,
         omega: float, psi: float, mu: float, selection_percentage: float = 0.15, recombination_probability: float = 0.5,
@@ -367,7 +366,7 @@ def gar(db: pd.DataFrame, num_cat_attrs: Dict[str, bool], num_sets: int, num_gen
 
     fittest_itemsets = []
     # Store which rows of the DB were marked
-    marked_rows: Dict[int, bool] = {row: False for row in range(len(db))}
+    marked_rows: Dict[int, bool] = {row: False for row in db.index}
     intervals = _get_lower_upper_bound(db, num_cat_attrs)
 
     for n_itemsets in range(num_sets):

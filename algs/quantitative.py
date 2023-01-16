@@ -254,7 +254,7 @@ def count_support(
     Returns:
         Dict[Tuple[Item], int]: Itemsets with their support
     """
-    for idx, row in db.iterrows():
+    def __count_supp(row: pd.Series) -> None:
         for its in items.keys():
             count = 0
             for it in its:
@@ -262,6 +262,8 @@ def count_support(
                     count += 1
             if count == len(its):
                 items[its] += 1
+
+    db.apply(__count_supp, axis=1)
 
     if drop:
         return {item: supp for item, supp in items.items() if supp / len(db) >= minsupp}
