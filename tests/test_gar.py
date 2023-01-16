@@ -22,18 +22,21 @@ class TestGar:
 
     def test_generate_first_population(self):
         self._setup()
+        set_attr = "married"
         intervals = _get_lower_upper_bound(self.data, self.description)
-        result = _generate_first_population(self.data, 5, intervals)
+        result = _generate_first_population(self.data, 5, intervals, set_attr)
         # Every item should at least get 2 attributes and at max 3
         assert all(2 <= len(ind.get_items()) and len(
             ind.get_items()) <= 3 for ind in result)
         # The population size has been set to 5
         assert len(result) == 5
+        # Every itemset should have the married attribute
+        assert all(set_attr in ind.get_items() for ind in result)
 
     def test_process(self):
         self._setup()
         intervals = _get_lower_upper_bound(self.data, self.description)
-        population = _generate_first_population(self.data, 5, intervals)
+        population = _generate_first_population(self.data, 5, intervals, None)
         marked = {row: False for row in range(len(self.data))}
         old_coverage = sum([cov.coverage for cov in population])
         _process(self.data, marked, population)
@@ -57,7 +60,7 @@ class TestGar:
     def test_get_fittest(self):
         self._setup()
         intervals = _get_lower_upper_bound(self.data, self.description)
-        population = _generate_first_population(self.data, 5, intervals)
+        population = _generate_first_population(self.data, 5, intervals, None)
         for itm in population:
             itm.fitness = random.random()
         fittest = _get_fittest(population, 0.2)
@@ -93,7 +96,7 @@ class TestGar:
     def test_crossover_types(self):
         self._setup()
         intervals = _get_lower_upper_bound(self.data, self.description)
-        population = _generate_first_population(self.data, 5, intervals)
+        population = _generate_first_population(self.data, 5, intervals, None)
         num_remaining = 2
         result = _cross_over(population, 0.5, num_remaining)
         # Every item should be an idividuum and there should be 2 offsprings

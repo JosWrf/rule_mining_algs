@@ -179,7 +179,7 @@ def _get_lower_upper_bound(db: pd.DataFrame, num_cat_attrs: Dict[str, bool]) -> 
     return interval_boundaries
 
 
-def _generate_first_population(db: pd.DataFrame, population_size: int, interval_boundaries: Dict[str, Tuple[float, float]]) -> List[Individuum]:
+def _generate_first_population(db: pd.DataFrame, population_size: int, interval_boundaries: Dict[str, Tuple[float, float]], set_attribute: str) -> List[Individuum]:
     """Determines an initial population, where each individuum may have 2 to n randomly sampled attributes.
     Further to come up with an individuum that is covered by at least one tuple, a random tuple from the db
     is sampled. For numeric attributes a random uniform number from 0 to 1/7 of the entire domain is added/
@@ -191,6 +191,7 @@ def _generate_first_population(db: pd.DataFrame, population_size: int, interval_
         db (pd.DataFrame): Database to sample initial individuals from.
         population_size (int): Number of individuals in the inital population.
         interval_boundaries (Dict[str, Tuple[float, float]]): Result of _get_lower_upper_bound
+        set_attribute (str): Name of attribute that should be included in every itemset.
 
     Returns:
         List[Individuum]: Initial population.
@@ -202,6 +203,11 @@ def _generate_first_population(db: pd.DataFrame, population_size: int, interval_
         items = list(db.columns)
         # Add two random attributes and then fill up with a coin toss for each attribute
         attrs = random.sample(items, 2)
+        # If the target attribute is not sampled, removed the second sample 
+        if set_attribute and set_attribute not in attrs:
+            attrs = attrs[0:1] + [set_attribute]
+            assert set_attribute in attrs
+            
         attrs = [itm for itm in items if itm not in attrs and random.random()
                  > 0.5] + attrs
         row = floor(random.uniform(0, len(db)-1))
@@ -293,7 +299,7 @@ def _cross_over(population: List[Individuum], probability: float, number_offspri
     return recombinations
 
 
-def _get_fittest(population: List[Individuum], selection_percentage: float) -> Tuple[List[Individuum], List[Individuum]]:
+def _get_fittest(population: List[Individuum], selection_percentage: float) -> List[Individuum]:
     """Determines the selection percentage fittest individuals.
     Note: An alternative would be to just take the fittest one and then randomly sample.
 
@@ -325,7 +331,7 @@ def _update_marked_records(db: pd.DataFrame, marked_records: Dict[int, bool], ch
 
 def gar(db: pd.DataFrame, num_cat_attrs: Dict[str, bool], num_sets: int, num_gens: int, population_size: int,
         omega: float, psi: float, mu: float, selection_percentage: float = 0.15, recombination_probability: float = 0.5,
-        mutation_probability: float = 0.4) -> pd.DataFrame:
+        mutation_probability: float = 0.4, set_attribute: str = None) -> pd.DataFrame:
     """Implementation of the GAR evolutionary algorithm from 'An Evolutionary Algorithm to Discover Numeric Association Rules'.
     Coverage was assumed to be relative support, amplitude was defined as (gene.upper-gene.lower) / (upper-lower), tuples were 
     marked when a chosen individual is supported by a row, a more elaborate marking could store the attributes that are covered
@@ -348,6 +354,7 @@ def gar(db: pd.DataFrame, num_cat_attrs: Dict[str, bool], num_sets: int, num_gen
         selection_percentage (float, optional): Percentage of fittest individuals for the next generation. Defaults to 0.15.
         recombination_probability (float, optional): Probability that the offspring inherits the genes from the other progenitor. Defaults to 0.5.
         mutation_probability (float, optional): Mutation probability of numerical attributes. Defaults to 0.4.
+        set_attribute (str): Attribute that should be included in every individual. Defaults to None.
 
     Returns:
         pd.DataFrame: Fittest itemsets, aswell as their subsets and support information, columns are ["itemsets","support"].
@@ -370,7 +377,7 @@ def gar(db: pd.DataFrame, num_cat_attrs: Dict[str, bool], num_sets: int, num_gen
     intervals = _get_lower_upper_bound(db, num_cat_attrs)
 
     for n_itemsets in range(num_sets):
-        population = _generate_first_population(db, population_size, intervals)
+        population = _generate_first_population(db, population_size, intervals, set_attribute)
         for n_gen in range(num_gens):
             _process(db, marked_rows, population)
 
