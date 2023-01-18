@@ -412,4 +412,4 @@ def gar(db: pd.DataFrame, num_cat_attrs: Dict[str, bool], num_sets: int, num_gen
     # Stuff into df
     final_itemsets_tuples = [{"itemsets": item.to_tuple(
     ), "support": item.coverage / len(db)} for item in final_itemsets]
-    return pd.DataFrame(final_itemsets_tuples)
+    return pd.DataFrame(final_itemsets_tuples).drop_duplicates()

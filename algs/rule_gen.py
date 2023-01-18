@@ -459,7 +459,7 @@ def __compare_attribute(row: Series, item: str) -> bool:
     # Handle clustering {x,y} = [20,30] x [25,35]
     if item.startswith("{"):
         attrlist = item[1:item.find("}")]
-        names = attrlist.split(",")
+        names = [name.strip() for name in attrlist.split(",")]
         lower_boundaries = [s.strip() for s in item[item.find(
             "[") + 1: item.find("]")].split(",")]
         second_interval = item[item.find("x")+3:]
