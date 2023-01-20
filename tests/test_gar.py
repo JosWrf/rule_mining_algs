@@ -5,6 +5,8 @@ import pandas as pd
 from algs.gar import (Gene, Individuum, _amplitude, _cross_over,
                       _generate_first_population, _get_fittest,
                       _get_lower_upper_bound, _process, _update_marked_records, gar)
+from algs.gar_plus import RuleIndividuum, _count_support, _generate_first_rule_population
+from algs.gar_plus import _update_marked_records as update_marked
 
 
 class TestGar:
@@ -154,3 +156,71 @@ class TestGar:
         assert result["support"].min() >= 0
         assert result["support"].max() <= 1
         assert "itemsets" in list(result.columns)
+
+
+class TestGarPlus:
+    def _setup(self) -> None:
+        self.data = pd.DataFrame()
+        self.description = {"age": True, "married": False, "temperature": True}
+        self.data["age"] = [23, 25, 29, 34, 38]
+        self.data["married"] = ["no", "yes", "no", "yes", "yes"]
+        self.data["temperature"] = [10.5, 27.3, 40.5, -23.4, 21.96]
+        self.intervals = _get_lower_upper_bound(self.data, self.description)
+        self.consequent = "married"
+
+    def _generate_individuals(self) -> None:
+        genes1 = {"age": Gene("age", True, 25, 38, 0),
+                  "married": Gene("married", False, 1, 1, "yes")}
+        genes2 = {"age": Gene("age", True, 25, 38, 0),
+                  "married": Gene("married", False, 1, 1, "yes"),
+                  "temperature": Gene("temperature", True, -10, 30, 15)}
+        self.ind = RuleIndividuum(genes1, self.consequent)
+        self.ind2 = RuleIndividuum(genes2, self.consequent)
+        self.population = [self.ind, self.ind2]
+
+    def test_generate_first_rule_population(self):
+        self._setup()
+        result = _generate_first_rule_population(
+            self.data, 5, self.intervals, self.consequent)
+        # The support and coverage should all be 0
+        assert all([cov.re_coverage for cov in result]) == 0
+        assert all([cov.support for cov in result]) == 0
+        assert all([cov.antecedent_supp for cov in result]) == 0
+        # Every item should at least get 2 attributes and at max 3
+        assert all(2 <= len(ind.get_items()) and len(
+            ind.get_items()) <= 3 for ind in result)
+        # The population size has been set to 5
+        assert len(result) == 5
+        # Every itemset should have the married attribute
+        assert all(self.consequent in ind.get_items() for ind in result)
+        assert all(self.consequent == ind.get_consequent() for ind in result)
+
+    def test_count_support(self):
+        self._setup()
+        self._generate_individuals()
+        marked = pd.DataFrame(
+            0, index=[i for i in range(len(self.data))], columns=list(self.data.columns))
+        _count_support(self.data, marked, self.population)
+        # The marks should not have changed
+        assert all([cov.re_coverage for cov in self.population]) == 0
+        assert marked.sum().sum() == 0
+
+        assert self.ind.antecedent_supp == 4
+        assert self.ind.support == 3
+
+        assert self.ind2.antecedent_supp == 2
+        assert self.ind2.support == 2
+
+    def test_update_marked_records(self):
+        self._setup()
+        self._generate_individuals()
+        marked = pd.DataFrame(
+            0, index=[i for i in range(len(self.data))], columns=list(self.data.columns))
+        update_marked(self.data, marked, self.ind)
+        # Rule applies 3 times
+        assert marked["age"].sum(axis=0) == 3
+        assert marked["temperature"].sum(axis=0) == 0
+        assert marked["married"].sum(axis=0) == 3
+
+    def test_gar_plus(self):
+        pass

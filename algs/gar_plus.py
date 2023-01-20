@@ -1,0 +1,309 @@
+from math import floor
+import random
+from typing import Any, Dict, List, Tuple
+import numpy as np
+import pandas as pd
+from algs.gar import _get_lower_upper_bound, _amplitude, _get_fittest, Gene
+
+
+class RuleIndividuum:
+
+    def __init__(self, items: Dict[str,  Gene], consequent: str) -> None:
+        self.items = items
+        self.consequent = consequent
+        self.fitness = 0.0
+        self.re_coverage = 0.0
+        self.support = 0
+        self.antecedent_supp = 0
+
+    def num_attrs(self) -> int:
+        return len(self.items)
+
+    def get_fitness(self) -> float:
+        return self.fitness
+
+    def get_items(self) -> Dict[str, Gene]:
+        return self.items
+
+    def get_consequent(self) -> str:
+        return self.consequent
+
+    def confidence(self) -> float:
+        return self.support / self.antecedent_supp
+
+    def reset_counts(self) -> None:
+        self.fitness = 0
+        self.support = 0
+        self.antecedent_supp = 0
+        self.re_coverage = 0
+
+    def matches(self, record: pd.Series) -> bool:
+        """Tries to match the current dataframe series against the genes stored in the
+        individuum. If the antecedent matches the antecedent_support is incremented.
+        If the entire rule is applicable the support is incremented aswell.
+        In this case all the matching attribute names will be returned.
+        Otherwise an empty list is returned.
+
+        Args:
+            record (pd.Series): Current row of the database
+
+        Returns:
+            List[str]: Empyt if the rule does not apply to the given Series, otherwise
+            the names of all attributes that did match.
+        """
+        marked = []
+        for name, gene in self.items.items():
+            val = record[name]
+            if gene.is_numerical() and (val > gene.upper or val < gene.lower):
+                continue
+            elif not gene.is_numerical() and (val != gene.value):
+                continue
+            marked.append(name)
+
+        if len(marked) == len(self.items):
+            self.support += 1
+            self.antecedent_supp += 1
+        elif len(marked) == len(self.items) - 1 and not self.consequent in marked:
+            self.antecedent_supp += 1
+
+        return marked if len(marked) == len(self.items) else []
+
+    def crossover(self, other: Any, probability: float) -> Tuple[Any, Any]:
+        """Performs crossover operator to generate two offsprings from two individuals.
+        Common genes are inherited by taking one at random with the given probability.
+        Other genes are inherited by default.
+
+        Args:
+            other (Any): Individual to cross the current individual with
+            probability (float): Crossover probability
+
+        Returns:
+            Tuple[Any, Any]: Two offsprings resulting from the crossover
+        """
+        other_genes = other.get_items()
+        genes1 = {}
+        for name, genes in self.get_items().items():
+            if other_genes.get(name) == None:
+                genes1[name] = genes
+            else:
+                genes1[name] = genes if random.random(
+                ) > probability else other_genes[name]
+
+        genes2 = {}
+        for name, genes in other_genes.items():
+            if self.items.get(name) == None:
+                genes2[name] = genes
+            else:
+                genes2[name] = genes if random.random(
+                ) > probability else self.items[name]
+
+        return (RuleIndividuum(genes1, self.consequent), RuleIndividuum(genes2, self.consequent))
+
+    def mutate(self, db: pd.DataFrame, probability: float) -> None:
+        """Mutates randomly selected genes. For numeric genes the interval bounaries
+        are either increased or deacreased by [0, interval_width/11]. In case of
+        categorical attributes there's a 25% of changing the attribute to a random
+        value of the domain.
+
+        Args:
+            db (pd.DataFrame): Database
+            probability (float): Mutation probability
+        """
+        for gene in self.items.values():
+            # Mutate in this case
+            if random.random() < probability:
+                name = gene.name
+                if gene.is_numerical():
+                    # Change the upper and lower bound of the interval
+                    lower = db[name].min()
+                    upper = db[name].max()
+                    width_delta = (upper - lower) / 17
+                    delta1 = random.uniform(0, width_delta)
+                    delta2 = random.uniform(0, width_delta)
+                    gene.lower += delta1 * (-1 if random.random() < 0.5 else 1)
+                    gene.upper += delta2 * (-1 if random.random() < 0.5 else 1)
+                    # All this mess ensures that the interval boundaries do not exceed DB [min, max]
+                    gene.lower = max(lower, gene.lower)
+                    gene.upper = min(upper, gene.upper)
+                    if gene.lower > gene.upper:
+                        gene.upper, gene.lower = gene.lower, gene.upper
+                        gene.lower = max(lower, gene.lower)
+                        gene.upper = min(upper, gene.upper)
+
+                else:
+                    # Only seldomly change the value of the categorical attribute
+                    gene.value = gene.value if random.random(
+                    ) < 0.75 else np.random.choice(db[name].to_numpy())
+
+    def __repr__(self) -> str:
+        antecedent = [item.__repr__()
+                      for item in self.items.values() if item.name != self.consequent]
+        return f"{antecedent.__str__()} -> {self.items[self.consequent]}"
+
+    def __add__(self, other: object) -> object:
+        self.items.update(other.get_items())
+        return RuleIndividuum(self.items)
+
+
+def _generate_first_rule_population(db: pd.DataFrame, population_size: int, interval_boundaries: Dict[str, Tuple[float, float]], set_attribute: str) -> List[RuleIndividuum]:
+    """Determines an initial population, where each individuum may have 2 to n randomly sampled attributes.
+    Further to come up with an individuum that is covered by at least one tuple, a random tuple from the db
+    is sampled. For numeric attributes a random uniform number from 0 to 1/7 of the entire domain is added/
+    subtracted from the interval boundaries.
+
+    Args:
+        db (pd.DataFrame): Database to sample initial individuals from.
+        population_size (int): Number of individuals in the inital population.
+        interval_boundaries (Dict[str, Tuple[float, float]]): Result of _get_lower_upper_bound
+        set_attribute (str): Name of attribute that should be included in every itemset.
+
+    Returns:
+        List[RuleIndividuum]: Initial population.
+    """
+    individuums = []
+
+    for i in range(population_size):
+        item = {}
+        items = list(db.columns)
+        # Add two random attributes and then fill up with a coin toss for each attribute
+        attrs = random.sample(items, 2)
+        # If the target attribute is not sampled, removed the second sample
+        if set_attribute not in attrs:
+            attrs = attrs[0:1] + [set_attribute]
+
+        attrs = [itm for itm in items if itm not in attrs and random.random()
+                 > 0.5] + attrs
+        row = floor(random.uniform(0, len(db)-1))
+        register = db.iloc[row]
+
+        for column in attrs:
+            value = register[column]
+            if interval_boundaries.get(column):
+                # Add/Subtract at most 1/7th of the entire attribute domain
+                lower, upper = interval_boundaries[column]
+                u = floor(random.uniform(0, (upper-lower) / 7))
+                lower = max(lower, value - u)
+                upper = min(upper, value + u)
+                item[column] = Gene(column, True, lower, upper, lower)
+            else:
+                value = register[column]
+                item[column] = Gene(column, False, value, value, value)
+
+        individuums.append(RuleIndividuum(item, set_attribute))
+
+    return individuums
+
+
+def _count_support(db: pd.DataFrame, marked_rows: pd.DataFrame, population: List[RuleIndividuum]) -> None:
+    for individuum in population:
+        individuum.reset_counts()
+
+    for i in range(len(db)):
+        row = db.iloc[i]
+        marked_row = marked_rows.iloc[i]
+        for individuum in population:
+            # Check for all attributes that are covered by the current rule
+            covered = individuum.matches(row)
+            # Only punish an individual if it is applicable
+            if covered:
+                column_sum = marked_row.sum()
+                individuum.re_coverage += marked_row[covered] / \
+                    column_sum if column_sum != 0 else 0
+
+
+def _cross_over(population: List[RuleIndividuum], probability: float, number_offspring: int) -> List[RuleIndividuum]:
+    """Crossover genes of the individuals and produce two offsprings, for each pair of
+    randomly sampled progenitors.
+
+    Args:
+        population (List[RuleIndividuum]): Progenitors that are crossed at random
+        probability (float): Crossover probability
+        number_offspring (int): Number of remaining offsprings to generate
+
+    Returns:
+        List[RuleIndividuum]: Offspring pair for each crossover event. It has double the size of
+        the given population.
+    """
+    recombinations = []
+
+    for i in range(number_offspring):
+        progenitors = random.sample(population, k=2)
+        offspring = progenitors[0].crossover(progenitors[1], probability)
+        recombinations.extend(offspring)
+
+    return recombinations
+
+
+def _update_marked_records(db: pd.DataFrame, marked_records: pd.DataFrame, chosen: RuleIndividuum) -> None:
+    """In a postprocessing step, the itemset with the highest fitness is used to mark all the
+    records in the db, that are covered by the itemset.
+
+    Args:
+        db (pd.DataFrame): Database whose records will be marked
+        marked_records (Dict[int, bool]): Stores for each record whether its already marked
+        chosen (RuleIndividuum): The fittest itemset of the fully evolved population
+    """
+    for i in range(len(db)):
+        row = db.iloc[i]
+        matches = chosen.matches(row)
+        if matches:
+            marked_records.loc[i, matches] += 1
+
+
+def gar_plus(db: pd.DataFrame, num_cat_attrs: Dict[str, bool], num_rules: int, num_gens: int, population_size: int,
+             w_s: float, w_c: float, n_a: float, w_a: float, w_recov: float, consequent: str,
+             selection_percentage: float = 0.15, recombination_probability: float = 0.5, mutation_probability: float = 0.4) -> pd.DataFrame:
+    def __update_counts(db: pd.DataFrame, marked_rows: Dict[int, bool], population: List[RuleIndividuum]) -> None:
+        """Processes the population and updates the coverage and marked counts.
+        """
+        _count_support(db, marked_rows, population)
+
+        for individual in population:
+            individual.fitness = _get_fitness(individual.coverage / len(db), individual.marked/len(
+                db), _amplitude(intervals, individual), individual.num_attrs() / len(num_cat_attrs))
+
+    def _get_fitness(ind: RuleIndividuum) -> float:
+        return (ind.support / len(db) * w_s) + (ind.confidence() * w_c) + \
+            (n_a * ind.num_attrs() / len(num_cat_attrs)) + \
+            (w_a * _amplitude(intervals, individual)) + \
+            (w_recov * ind.re_coverage / len(db))
+
+    best_rules_found = []
+    intervals = _get_lower_upper_bound(db, num_cat_attrs)
+    # Store a counter for each attribute, that is incremented when the row is covered by a rule
+    marked_rows = pd.DataFrame(
+        0, index=[i for i in range(len(db))], columns=list(db.columns))
+
+    for _ in range(num_rules):
+        population = _generate_first_rule_population(
+            db, population_size, intervals, consequent)
+        for n_gen in range(num_gens):
+            _count_support(db, marked_rows, population)
+
+            for individual in population:
+                individual.fitness = _get_fitness(individual)
+            # Get selection percentage of the best adapted individuals for the next gen
+            next_population = _get_fittest(
+                population, selection_percentage)
+            # Crossover events two produce offspring
+            offsprings = _cross_over(population, recombination_probability, len(
+                population)-len(next_population))
+            # Keep the better adapted of the offspring
+            __update_counts(db, marked_rows, offsprings)
+            offsprings = [offsprings[i] if offsprings[i].get_fitness(
+            ) > offsprings[i+1].get_fitness() else offsprings[i+1] for i in range(0, len(offsprings), 2)]
+            next_population.extend(offsprings)
+
+            for individual in next_population:
+                individual.mutate(db, mutation_probability)
+
+            population = next_population
+
+        __update_counts(db, marked_rows, population)
+        chosen_one = max(population, key=lambda item: item.get_fitness())
+        _update_marked_records(db, marked_rows, chosen_one)
+
+        best_rules_found.append(chosen_one)
+
+    # Return a dataframe containing rules only
+    return best_rules_found
