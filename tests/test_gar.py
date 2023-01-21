@@ -222,6 +222,21 @@ class TestGarPlus:
         assert marked["temperature"].sum(axis=0) == 0
         assert marked["married"].sum(axis=0) == 3
 
+    def test_count_w_marking(self):
+        self._setup()
+        self._generate_individuals()
+        marked = pd.DataFrame(
+            0, index=[i for i in range(len(self.data))], columns=list(self.data.columns))
+        update_marked(self.data, marked, self.ind)
+        # Remove to see if the rows are incremented properly
+        del self.ind2.get_items()["age"]
+        _count_support(self.data, marked, self.population)
+
+        # Three rows were marked by this rule
+        assert self.ind.re_coverage == 3
+        # Two rows match, where
+        assert self.ind2.re_coverage == 1
+
     def test_consequent_support(self):
         self._setup()
         self._generate_individuals()

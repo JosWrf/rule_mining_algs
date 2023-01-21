@@ -234,7 +234,7 @@ def _generate_first_rule_population(db: pd.DataFrame, population_size: int, inte
 
 
 def _count_support(db: pd.DataFrame, marked_rows: pd.DataFrame, population: List[RuleIndividuum]) -> None:
-    """Updates the support count (antecedent and rule) and re-coverage for all the individuals 
+    """Updates the support count (antecedent and rule) and re-coverage for all the individuals
     in the population. Everytime a rule applies to a row, the sum of all
     the marks for that row are added and normalized by means of the row sum
     in marked_rows.
@@ -256,7 +256,7 @@ def _count_support(db: pd.DataFrame, marked_rows: pd.DataFrame, population: List
             # Only punish an individual if it is applicable
             if covered:
                 column_sum = marked_row.sum()
-                individuum.re_coverage += marked_row[covered] / \
+                individuum.re_coverage += marked_row[covered].sum() / \
                     column_sum if column_sum != 0 else 0
 
 
@@ -322,7 +322,7 @@ def gar_plus(db: pd.DataFrame, num_cat_attrs: Dict[str, bool], num_rules: int, n
     a priori.
 
     Args:
-        db (pd.DataFrame): Database 
+        db (pd.DataFrame): Database
         num_cat_attrs (Dict[str, bool]): Maps numerical attributes to true and categorical ones to false
         num_rules (int): _description_
         num_gens (int): Number of generations
@@ -349,10 +349,11 @@ def gar_plus(db: pd.DataFrame, num_cat_attrs: Dict[str, bool], num_rules: int, n
             individual.fitness = _get_fitness(individual)
 
     def _get_fitness(ind: RuleIndividuum) -> float:
-        return (ind.support / len(db) * w_s) + (ind.confidence() * w_c) + \
-            (n_a * ind.num_attrs() / len(num_cat_attrs)) + \
+        result = (ind.support / len(db) * w_s) + (ind.confidence() * w_c) + \
+            (n_a * ind.num_attrs() / len(num_cat_attrs) * ind.support / len(db)) + \
             (w_a * _amplitude(intervals, individual)) + \
             (w_recov * ind.re_coverage / len(db))
+        return result
 
     best_rules_found = []
     intervals = _get_lower_upper_bound(db, num_cat_attrs)
@@ -368,6 +369,7 @@ def gar_plus(db: pd.DataFrame, num_cat_attrs: Dict[str, bool], num_rules: int, n
 
             for individual in population:
                 individual.fitness = _get_fitness(individual)
+
             # Get selection percentage of the best adapted individuals for the next gen
             next_population = _get_fittest(
                 population, selection_percentage)
