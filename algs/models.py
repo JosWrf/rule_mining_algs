@@ -2,6 +2,7 @@ from typing import Any, Callable, Dict
 from algs.apriori import a_close
 from algs.fp_tree import fp_growth
 from algs.gar import gar
+from algs.gar_plus import gar_plus
 from algs.hclique import hclique
 from algs.quantitative import quantitative_itemsets
 from algs.rule_gen import generate_rules, minimal_non_redundant_rules
@@ -119,3 +120,11 @@ class GeneticAlgorithmMiner(Model):
 
     def __init__(self) -> None:
         super().__init__(None, gar, generate_rules)
+
+
+class GarPlusMiner(Model):
+    """Uses a the gar-plus algorithm to discover itemsets.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(None, gar_plus, lambda x: x)

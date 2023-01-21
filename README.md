@@ -15,7 +15,8 @@ a framework of the different algorithm implementations is built.
 - Rule Generation for apriori-like Algorithms
 - Brute-Force Mining of Classification Rules
 - Clustering to find intervals for numeric attributes
-- Evolutionary Algorithm to Discover Itemsets (very slow)
+- Evolutionary Algorithm to Discover Itemsets (GAR)
+- Evolutionary Algorithm to Discover Rules with fixed consequent (GAR-PLUS)
 
 ## Datasets
 
@@ -65,11 +66,4 @@ mine_quant.set_args(mine_quant.rule_miner, {"min_conf": 0.65})
 rules = mine_quant.run(shrooms)
 # Post processing step to obtain rules having only the label in the consequent
 classification_rules = get_classification_rules(rules, "label")
-```
-
-## TODO
-
-```
-- Implement ARM based Classification Algorithms
-- Might consider Association Rules over Spatial DBs
 ```
