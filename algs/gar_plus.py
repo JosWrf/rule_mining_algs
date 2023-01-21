@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Tuple
 import numpy as np
 import pandas as pd
 from algs.gar import _get_lower_upper_bound, _amplitude, _get_fittest, Gene
+from algs.util import measure_dict
 
 
 class RuleIndividuum:
@@ -15,6 +16,7 @@ class RuleIndividuum:
         self.re_coverage = 0.0
         self.support = 0
         self.antecedent_supp = 0
+        self.consequent_supp = 0
 
     def num_attrs(self) -> int:
         return len(self.items)
@@ -29,6 +31,8 @@ class RuleIndividuum:
         return self.consequent
 
     def confidence(self) -> float:
+        if self.antecedent_supp == 0.0:
+            return 0
         return self.support / self.antecedent_supp
 
     def reset_counts(self) -> None:
@@ -36,6 +40,41 @@ class RuleIndividuum:
         self.support = 0
         self.antecedent_supp = 0
         self.re_coverage = 0
+
+    def to_tuple(self, attrs: List[str]) -> Tuple[str]:
+        items = []
+        for attr in attrs:
+            gene = self.items[attr]
+            if gene.is_numerical():
+                items.append(f"{gene.name} = {gene.lower}..{gene.upper}")
+            else:
+                items.append(f"{gene.name} = {gene.value}")
+        return tuple(items)
+
+    def to_dict(self, n: int) -> Dict[str, float]:
+        """Converts the rule individual to an entry that is compatible with the rule
+        framework in rule_gen.
+
+        Args:
+            n (int): Number of database entries.
+
+        Returns:
+            Dict[str, float]: Map with all strings s.a. antecedents, consequents, cosine, etc.
+            mapped to their respective values.
+        """
+        antecedents = tuple(
+            [item for item in self.items.keys() if item != self.consequent])
+        antecedents = self.to_tuple(antecedents)
+        consequent = self.to_tuple([self.consequent])
+
+        items = {"antecedents": antecedents, "consequents": consequent,
+                 "support": self.support / n,
+                 "confidence": self.support / self.antecedent_supp if self.antecedent_supp != 0 else 0,
+                 }
+        items.update(measure_dict(self.antecedent_supp/n,
+                     self.consequent_supp/n, self.support/n))
+
+        return items
 
     def matches(self, record: pd.Series) -> bool:
         """Tries to match the current dataframe series against the genes stored in the
@@ -195,6 +234,16 @@ def _generate_first_rule_population(db: pd.DataFrame, population_size: int, inte
 
 
 def _count_support(db: pd.DataFrame, marked_rows: pd.DataFrame, population: List[RuleIndividuum]) -> None:
+    """Updates the support count (antecedent and rule) and re-coverage for all the individuals 
+    in the population. Everytime a rule applies to a row, the sum of all
+    the marks for that row are added and normalized by means of the row sum
+    in marked_rows.
+
+    Args:
+        db (pd.DataFrame): Database to be mined
+        marked_rows (pd.DataFrame): Counts how often each attribute and rule was covered
+        population (List[RuleIndividuum]): Current Population
+    """
     for individuum in population:
         individuum.reset_counts()
 
@@ -209,6 +258,21 @@ def _count_support(db: pd.DataFrame, marked_rows: pd.DataFrame, population: List
                 column_sum = marked_row.sum()
                 individuum.re_coverage += marked_row[covered] / \
                     column_sum if column_sum != 0 else 0
+
+
+def _count_consequent_support(db: pd.DataFrame, final_rule_set: List[RuleIndividuum]) -> None:
+    """Counts the support for the consequent and stores them in the respective
+    RuleIndividuum.
+
+    Args:
+        db (pd.DataFrame): Database
+        final_rule_set (List[RuleIndividuum]): All fittest, mined rules
+    """
+    for individuum in final_rule_set:
+        gene = individuum.get_items()[individuum.consequent]
+        mask = (db[gene.name] >= gene.lower) & (db[gene.name] <=
+                                                gene.upper) if gene.is_numerical() else (db[gene.name] == gene.value)
+        individuum.consequent_supp = mask.sum()
 
 
 def _cross_over(population: List[RuleIndividuum], probability: float, number_offspring: int) -> List[RuleIndividuum]:
@@ -253,14 +317,36 @@ def _update_marked_records(db: pd.DataFrame, marked_records: pd.DataFrame, chose
 def gar_plus(db: pd.DataFrame, num_cat_attrs: Dict[str, bool], num_rules: int, num_gens: int, population_size: int,
              w_s: float, w_c: float, n_a: float, w_a: float, w_recov: float, consequent: str,
              selection_percentage: float = 0.15, recombination_probability: float = 0.5, mutation_probability: float = 0.4) -> pd.DataFrame:
+    """Implements a version of the gar plus algorithm from 'An evolutionary algorithm to discover quantitative association rules from huge
+    databases without the need for an a priori discretization', where the consequent can consist of a single item, which has to be determined
+    a priori.
+
+    Args:
+        db (pd.DataFrame): Database 
+        num_cat_attrs (Dict[str, bool]): Maps numerical attributes to true and categorical ones to false
+        num_rules (int): _description_
+        num_gens (int): Number of generations
+        population_size (int): Number of individuals used in each population
+        w_s (float): Weighting factor for support
+        w_c (float): Weighting factor for confidence
+        n_a (float): Weighting factor for number attributes
+        w_a (float): Weighting factor for amplitude
+        w_recov (float): Weighting factor for re-coverage
+        consequent (str): Consequent attribute name
+        selection_percentage (float, optional): Number of individuals passing to the next generation. Defaults to 0.15.
+        recombination_probability (float, optional): Crossover probability. Defaults to 0.5.
+        mutation_probability (float, optional): Mutation probability. Defaults to 0.4.
+
+    Returns:
+        pd.DataFrame: Fittest rules with a bunch of measures added.
+    """
     def __update_counts(db: pd.DataFrame, marked_rows: Dict[int, bool], population: List[RuleIndividuum]) -> None:
         """Processes the population and updates the coverage and marked counts.
         """
         _count_support(db, marked_rows, population)
 
         for individual in population:
-            individual.fitness = _get_fitness(individual.coverage / len(db), individual.marked/len(
-                db), _amplitude(intervals, individual), individual.num_attrs() / len(num_cat_attrs))
+            individual.fitness = _get_fitness(individual)
 
     def _get_fitness(ind: RuleIndividuum) -> float:
         return (ind.support / len(db) * w_s) + (ind.confidence() * w_c) + \
@@ -305,5 +391,7 @@ def gar_plus(db: pd.DataFrame, num_cat_attrs: Dict[str, bool], num_rules: int, n
 
         best_rules_found.append(chosen_one)
 
+    # Final count of consequent support to calculate the rule measures
+    _count_consequent_support(db, best_rules_found)
     # Return a dataframe containing rules only
-    return best_rules_found
+    return pd.DataFrame([rule.to_dict(len(db)) for rule in best_rules_found])

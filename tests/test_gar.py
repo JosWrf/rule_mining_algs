@@ -5,7 +5,7 @@ import pandas as pd
 from algs.gar import (Gene, Individuum, _amplitude, _cross_over,
                       _generate_first_population, _get_fittest,
                       _get_lower_upper_bound, _process, _update_marked_records, gar)
-from algs.gar_plus import RuleIndividuum, _count_support, _generate_first_rule_population
+from algs.gar_plus import RuleIndividuum, _count_consequent_support, _count_support, _generate_first_rule_population, gar_plus
 from algs.gar_plus import _update_marked_records as update_marked
 
 
@@ -222,5 +222,40 @@ class TestGarPlus:
         assert marked["temperature"].sum(axis=0) == 0
         assert marked["married"].sum(axis=0) == 3
 
+    def test_consequent_support(self):
+        self._setup()
+        self._generate_individuals()
+        _count_consequent_support(self.data, self.population)
+        assert self.ind.consequent_supp == 3
+        assert self.ind2.consequent_supp == 3
+
+    def test_to_dict(self):
+        self._setup()
+        self._generate_individuals()
+        marked = pd.DataFrame(
+            0, index=[i for i in range(len(self.data))], columns=list(self.data.columns))
+        _count_support(self.data, marked, self.population)
+        result = self.ind2.to_dict(len(self.data))
+        assert result["antecedents"]
+        # 2 instances cover the db, where the antecedents cooccur with the consequent
+        assert result["antecedents"] == (
+            "age = 25..38", "temperature = -10..30")
+        assert result["support"] == 0.4
+        assert result["confidence"] == 1
+
+        result = self.ind.to_dict(len(self.data))
+        assert result["antecedents"] == ("age = 25..38",)
+        assert result["consequents"] == ("married = yes",)
+        # antecedent matches 4 times and the entire itemset 3 times
+        assert result["support"] == 0.6
+        assert result["confidence"] == 3/4
+
     def test_gar_plus(self):
-        pass
+        self._setup()
+        result = gar_plus(self.data, self.description, 3, 10,
+                          3, 0.5, 0.4, 0.3, 0.2, 0.4, self.consequent)
+
+        assert result["support"].min() >= 0
+        assert result["support"].max() <= 1
+        assert {"support", "confidence", "antecedents",
+                "consequents", "imbalance_ratio"} < set(list(result.columns))
