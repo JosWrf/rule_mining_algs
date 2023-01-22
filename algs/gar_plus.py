@@ -79,22 +79,23 @@ class RuleIndividuum:
 
         return items
 
-    def matches(self, record: pd.Series) -> bool:
+    def matches(self, record: pd.Series) -> np.ndarray:
         """Tries to match the current dataframe series against the genes stored in the
         individuum. If the antecedent matches the antecedent_support is incremented.
         If the entire rule is applicable the support is incremented aswell.
-        In this case all the matching attribute names will be returned.
-        Otherwise an empty list is returned.
+        In this case a 0/1 array will be returned.
+        Otherwise a zero array is returned.
 
         Args:
             record (pd.Series): Current row of the database
 
         Returns:
-            List[str]: Empyt if the rule does not apply to the given Series, otherwise
-            the names of all attributes that did match.
+            np.ndarray: Zero array if no attribute matched. Otherwise 1 entries indicate
+            the given attribute was matched
         """
         marked = []
         match = True
+        arr = np.zeros(len(record))
 
         for name, gene in self.items.items():
             val = record[name]
@@ -109,7 +110,9 @@ class RuleIndividuum:
         elif len(marked) == len(self.items) - 1 and not self.consequent in marked:
             self.antecedent_supp += 1
 
-        return marked if len(marked) == len(self.items) else []
+        boolean_arr = np.array(
+            [1 if idx in marked else 0 for idx, _ in record.items()])
+        return boolean_arr if len(marked) == len(self.items) else arr
 
     def matching_attributes(self, record: pd.Series) -> List[str]:
         marked = []
@@ -253,21 +256,18 @@ def _count_support(db: pd.DataFrame, marked_rows: pd.DataFrame, population: List
         marked_rows (pd.DataFrame): Counts how often each attribute and rule was covered
         population (List[RuleIndividuum]): Current Population
     """
-    def __count(row: pd.Series):
-        row_sum = row.sum(axis=0)
-        if not row_sum:
-            return 0
-        return row[mask[row.name]].sum() / row_sum
-
     for individuum in population:
         individuum.reset_counts()
         mask = db.apply(individuum.matches, axis=1)
-        bool_mask = mask.apply(lambda x: True if x else False)
+        bool_mask = (mask.apply(lambda x: x.sum() !=
+                                0)) & (marked_rows.sum(axis=1) != 0)
         if bool_mask.any():
             relevant_rows = marked_rows.loc[bool_mask]
-            result = relevant_rows.apply(
-                __count, axis=1)
-            individuum.re_coverage += result.sum()
+            mask = np.stack(mask.loc[bool_mask].values)
+            relevant_rows = relevant_rows.to_numpy()
+            col_sums = np.sum(relevant_rows, axis=1)
+            result = mask * relevant_rows
+            individuum.re_coverage += np.sum(np.sum(result, axis=1) / col_sums)
 
 
 def _count_consequent_support(db: pd.DataFrame, final_rule_set: List[RuleIndividuum]) -> None:
@@ -359,17 +359,20 @@ def gar_plus(db: pd.DataFrame, num_cat_attrs: Dict[str, bool], num_rules: int, n
             individual.fitness = _get_fitness(individual)
 
     def _get_fitness(ind: RuleIndividuum) -> float:
-        result = (ind.support / len(db) * w_s) + (ind.confidence() * w_c) + \
-            (n_a * ind.num_attrs() / len(num_cat_attrs) * ind.support / len(db)) - \
+        result = (ind.support / n * w_s) + (ind.confidence() * w_c) + \
+            (n_a * ind.num_attrs() / num_attrs * ind.support / n) - \
             (w_a * _amplitude(intervals, individual)) - \
-            (w_recov * ind.re_coverage / len(db))
+            (w_recov * ind.re_coverage / n)
         return result
+
+    n = len(db)
+    num_attrs = len(num_cat_attrs)
 
     best_rules_found = []
     intervals = _get_lower_upper_bound(db, num_cat_attrs)
     # Store a counter for each attribute, that is incremented when the row is covered by a rule
     marked_rows = pd.DataFrame(
-        0, index=[i for i in range(len(db))], columns=list(db.columns))
+        0, index=[i for i in range(n)], columns=list(db.columns))
 
     for _ in range(num_rules):
         population = _generate_first_rule_population(
