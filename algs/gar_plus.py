@@ -101,7 +101,7 @@ class RuleIndividuum:
             val = record[name]
             if (gene.is_numerical() and (val > gene.upper or val < gene.lower)) or (not gene.is_numerical() and val != gene.value):
                 match = False
-                break
+                continue
             marked.append(name)
 
         if match:
@@ -409,4 +409,4 @@ def gar_plus(db: pd.DataFrame, num_cat_attrs: Dict[str, bool], num_rules: int, n
     # Final count of consequent support to calculate the rule measures
     _count_consequent_support(db, best_rules_found)
     # Return a dataframe containing rules only
-    return pd.DataFrame([rule.to_dict(len(db)) for rule in best_rules_found])
+    return pd.DataFrame([rule.to_dict(len(db)) for rule in best_rules_found]).drop_duplicates()
