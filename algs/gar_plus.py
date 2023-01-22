@@ -1,3 +1,4 @@
+from copy import deepcopy
 import random
 from math import floor
 from typing import Any, Dict, List, Tuple
@@ -93,15 +94,16 @@ class RuleIndividuum:
             the names of all attributes that did match.
         """
         marked = []
+        match = True
+
         for name, gene in self.items.items():
             val = record[name]
-            if gene.is_numerical() and (val > gene.upper or val < gene.lower):
-                continue
-            elif not gene.is_numerical() and (val != gene.value):
-                continue
+            if (gene.is_numerical() and (val > gene.upper or val < gene.lower)) or (not gene.is_numerical() and val != gene.value):
+                match = False
+                break
             marked.append(name)
 
-        if len(marked) == len(self.items):
+        if match:
             self.support += 1
             self.antecedent_supp += 1
         elif len(marked) == len(self.items) - 1 and not self.consequent in marked:
@@ -113,12 +115,12 @@ class RuleIndividuum:
         marked = []
         for name, gene in self.items.items():
             val = record[name]
-            if gene.is_numerical() and (val > gene.upper or val < gene.lower):
-                return []
-            elif not gene.is_numerical() and (val != gene.value):
+            if gene.is_numerical():
+                if val > gene.upper or val < gene.lower:
+                    return []
+            elif val != gene.value:
                 return []
             marked.append(name)
-
         return marked
 
     def crossover(self, other: Any, probability: float) -> Tuple[Any, Any]:
@@ -134,22 +136,16 @@ class RuleIndividuum:
             Tuple[Any, Any]: Two offsprings resulting from the crossover
         """
         other_genes = other.get_items()
-        genes1 = {}
-        for name, genes in self.get_items().items():
-            if other_genes.get(name) == None:
-                genes1[name] = genes
-            else:
-                genes1[name] = genes if np.random.random(
-                ) > probability else other_genes[name]
+        genes1 = deepcopy(self.get_items())
+        genes2 = deepcopy(other_genes)
 
-        genes2 = {}
-        for name, genes in other_genes.items():
-            if self.items.get(name) == None:
-                genes2[name] = genes
-            else:
-                genes2[name] = genes if np.random.random(
-                ) > probability else self.items[name]
-
+        common_genes = set(genes1).intersection(other_genes)
+        rand_prob = np.random.rand(len(common_genes))
+        for name, prob in zip(common_genes, rand_prob):
+            if prob < probability:
+                genes1[name] = deepcopy(other_genes[name])
+            if prob < probability:
+                genes2[name] = deepcopy(self.get_items()[name])
         return (RuleIndividuum(genes1, self.consequent), RuleIndividuum(genes2, self.consequent))
 
     def mutate(self, db: pd.DataFrame, probability: float) -> None:
@@ -162,9 +158,11 @@ class RuleIndividuum:
             db (pd.DataFrame): Database
             probability (float): Mutation probability
         """
-        for gene in self.items.values():
+        random_numbers = np.random.random(size=len(self.items))
+        for i, gene in enumerate(self.items.values()):
+            name = gene.name
             # Mutate in this case
-            if np.random.random() < probability:
+            if random_numbers[i] < probability:
                 name = gene.name
                 if gene.is_numerical():
                     # Change the upper and lower bound of the interval
@@ -173,17 +171,16 @@ class RuleIndividuum:
                     width_delta = (upper - lower) / 17
                     delta1 = np.random.uniform(0, width_delta)
                     delta2 = np.random.uniform(0, width_delta)
+                    rands = np.random.random(size=(2))
                     gene.lower += delta1 * \
-                        (-1 if np.random.random() < 0.5 else 1)
+                        (-1 if rands[0] < 0.5 else 1)
                     gene.upper += delta2 * \
-                        (-1 if np.random.random() < 0.5 else 1)
+                        (-1 if rands[1] < 0.5 else 1)
                     # All this mess ensures that the interval boundaries do not exceed DB [min, max]
-                    gene.lower = max(lower, gene.lower)
-                    gene.upper = min(upper, gene.upper)
+                    gene.lower = min(upper, max(gene.lower, lower))
+                    gene.upper = min(upper, max(gene.upper, lower))
                     if gene.lower > gene.upper:
                         gene.upper, gene.lower = gene.lower, gene.upper
-                        gene.lower = max(lower, gene.lower)
-                        gene.upper = min(upper, gene.upper)
 
                 else:
                     # Only seldomly change the value of the categorical attribute
@@ -194,10 +191,6 @@ class RuleIndividuum:
         antecedent = [item.__repr__()
                       for item in self.items.values() if item.name != self.consequent]
         return f"{antecedent.__str__()} -> {self.items[self.consequent]}"
-
-    def __add__(self, other: object) -> object:
-        self.items.update(other.get_items())
-        return RuleIndividuum(self.items)
 
 
 def _generate_first_rule_population(db: pd.DataFrame, population_size: int, interval_boundaries: Dict[str, Tuple[float, float]], set_attribute: str) -> List[RuleIndividuum]:
