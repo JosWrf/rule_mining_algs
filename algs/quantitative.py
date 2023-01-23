@@ -1,8 +1,9 @@
 from math import ceil, floor
 from typing import Any, Dict, Iterator, Set, Tuple
+
 import pandas as pd
-from pandas import DataFrame
 from mlxtend.preprocessing import TransactionEncoder
+from pandas import DataFrame
 from sklearn.cluster import Birch
 
 
@@ -22,11 +23,18 @@ def partition_intervals(
         The order of the intervals is reflected in the integers.
     """
     if equi_depth:
+        # Determine the new number of labels
+        _,y = pd.qcut(
+            x=db[attribute],
+            q=num_intervals,
+            retbins=True,
+            duplicates="drop")
         return pd.qcut(
             x=db[attribute],
             q=num_intervals,
-            labels=[i for i in range(num_intervals)],
+            labels=[i for i in range(len(y)-1)],
             retbins=True,
+            duplicates="drop"
         )
     return pd.cut(
         x=db[attribute],
@@ -59,7 +67,7 @@ def discretize_values(
     """Maps the numerical and quantititative attributes to integers as described in 'Mining Quantitative Association
     Rules in Large Relational Tables'.
 
-    Args:
+s:
         db (DataFrame): Original Database
         discretization (Dict[str, int]): Name of the attribute (pandas column name) and the number of intervals
         for numerical attributes or 0 for categorical attributes and numerical attributes (no intervals)
