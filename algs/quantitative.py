@@ -229,7 +229,7 @@ class Item:
 
     def __sub__(self, __o: object) -> object:
         if (
-            __o.lower > self.lower and __o.upper < self.upper
+            __o.lower > self.lower and __o.upper < self.upper or self.lower >= __o.upper
         ):  # Inclusion relation would cause a split in 2 non-adjecent subintervals
             return None
         if (
