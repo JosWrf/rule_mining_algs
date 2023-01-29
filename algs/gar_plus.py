@@ -20,9 +20,10 @@ class RuleIndividuum:
         self.support = 0
         self.antecedent_supp = 0
         self.consequent_supp = 0
+        self.attr_count = len(self.items)
 
     def num_attrs(self) -> int:
-        return len(self.items)
+        return self.attr_count
 
     def get_fitness(self) -> float:
         return self.fitness
@@ -196,7 +197,8 @@ class RuleIndividuum:
         return f"{antecedent.__str__()} -> {self.items[self.consequent]}"
 
 
-def _generate_first_rule_population(db: pd.DataFrame, population_size: int, interval_boundaries: Dict[str, Tuple[float, float]], set_attribute: str) -> List[RuleIndividuum]:
+def _generate_first_rule_population(db: pd.DataFrame, population_size: int, interval_boundaries: Dict[str, Tuple[float, float]], set_attribute: str,
+                                    attr_probability: float = 0.5) -> List[RuleIndividuum]:
     """Determines an initial population, where each individuum may have 2 to n randomly sampled attributes.
     Further to come up with an individuum that is covered by at least one tuple, a random tuple from the db
     is sampled. For numeric attributes a random uniform number from 0 to 1/7 of the entire domain is added/
@@ -207,6 +209,7 @@ def _generate_first_rule_population(db: pd.DataFrame, population_size: int, inte
         population_size (int): Number of individuals in the inital population.
         interval_boundaries (Dict[str, Tuple[float, float]]): Result of _get_lower_upper_bound
         set_attribute (str): Name of attribute that should be included in every itemset.
+        attr_probability (float): Probability that the attribute is not picked.
 
     Returns:
         List[RuleIndividuum]: Initial population.
@@ -223,7 +226,7 @@ def _generate_first_rule_population(db: pd.DataFrame, population_size: int, inte
             attrs = attrs[0:1] + [set_attribute]
 
         attrs = [itm for itm in items if itm not in attrs and np.random.random()
-                 > 0.5] + attrs
+                 > attr_probability] + attrs
         row = np.random.randint(0, len(db)-1)
         register = db.iloc[row]
 
@@ -326,7 +329,8 @@ def _update_marked_records(db: pd.DataFrame, marked_records: pd.DataFrame, chose
 
 def gar_plus(db: pd.DataFrame, num_cat_attrs: Dict[str, bool], num_rules: int, num_gens: int, population_size: int,
              w_s: float, w_c: float, n_a: float, w_a: float, w_recov: float, consequent: str,
-             selection_percentage: float = 0.15, recombination_probability: float = 0.5, mutation_probability: float = 0.4) -> pd.DataFrame:
+             selection_percentage: float = 0.15, recombination_probability: float = 0.5, mutation_probability: float = 0.4,
+             attr_probability: float = 0.5) -> pd.DataFrame:
     """Implements a version of the gar plus algorithm from 'An evolutionary algorithm to discover quantitative association rules from huge
     databases without the need for an a priori discretization', where the consequent can consist of a single item, which has to be determined
     a priori.
@@ -346,6 +350,8 @@ def gar_plus(db: pd.DataFrame, num_cat_attrs: Dict[str, bool], num_rules: int, n
         selection_percentage (float, optional): Number of individuals passing to the next generation. Defaults to 0.15.
         recombination_probability (float, optional): Crossover probability. Defaults to 0.5.
         mutation_probability (float, optional): Mutation probability. Defaults to 0.4.
+        attr_probability (float, optional): Probability with which attributes are chosen, when constructing the initial 
+        population. Defaults to 0.5.
 
     Returns:
         pd.DataFrame: Fittest rules with a bunch of measures added.
@@ -360,7 +366,7 @@ def gar_plus(db: pd.DataFrame, num_cat_attrs: Dict[str, bool], num_rules: int, n
 
     def _get_fitness(ind: RuleIndividuum) -> float:
         result = (ind.support / n * w_s) + (ind.confidence() * w_c) + \
-            (n_a * ind.num_attrs() / num_attrs * ind.support / n) - \
+            (n_a * ind.num_attrs() / num_attrs) - \
             (w_a * _amplitude(intervals, individual)) - \
             (w_recov * ind.re_coverage / n)
         return result
@@ -376,7 +382,7 @@ def gar_plus(db: pd.DataFrame, num_cat_attrs: Dict[str, bool], num_rules: int, n
 
     for _ in range(num_rules):
         population = _generate_first_rule_population(
-            db, population_size, intervals, consequent)
+            db, population_size, intervals, consequent, attr_probability)
         for n_gen in range(num_gens):
             _count_support(db, marked_rows, population)
 
