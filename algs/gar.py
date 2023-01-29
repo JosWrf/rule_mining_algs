@@ -1,3 +1,4 @@
+from copy import deepcopy
 from math import floor
 import random
 from typing import Any, Dict, List, Tuple
@@ -26,6 +27,11 @@ class Gene:
             return f"{self.name}: {self.value}"
         else:
             return f"{self.name}: [{self.lower}, {self.upper}]"
+
+    def __eq__(self, __o: object) -> bool:
+        if self.numerical and __o.numerical:
+            return self.lower == __o.lower and self.upper == __o.upper
+        return self.value == __o.value
 
 
 class Individuum:
@@ -68,22 +74,16 @@ class Individuum:
             Tuple[Any, Any]: Two offsprings resulting from the crossover
         """
         other_genes = other.get_items()
-        genes1 = {}
-        for name, genes in self.get_items().items():
-            if other_genes.get(name) == None:
-                genes1[name] = genes
-            else:
-                genes1[name] = genes if random.random(
-                ) > probability else other_genes[name]
+        genes1 = deepcopy(self.get_items())
+        genes2 = deepcopy(other_genes)
 
-        genes2 = {}
-        for name, genes in other_genes.items():
-            if self.items.get(name) == None:
-                genes2[name] = genes
-            else:
-                genes2[name] = genes if random.random(
-                ) > probability else self.items[name]
-
+        common_genes = set(genes1).intersection(other_genes)
+        rand_prob = np.random.rand(len(common_genes))
+        for name, prob in zip(common_genes, rand_prob):
+            if prob < probability:
+                genes1[name] = deepcopy(other_genes[name])
+            if prob < probability:
+                genes2[name] = deepcopy(self.get_items()[name])
         return (Individuum(genes1), Individuum(genes2))
 
     def mutate(self, db: pd.DataFrame, probability: float) -> None:
