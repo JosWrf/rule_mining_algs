@@ -52,14 +52,14 @@ def hclique(dataframe: DataFrame, hconf_threshold: float = 0.5, support_threshol
         frequent_k_itemsets = sorted(frequent_k_itemsets.keys())
         k += 1
 
-        # Generate dataframe from all frequent itemsets and their support
-        df = pd.DataFrame(
-            all_sets.items(),
-            index=[i for i in range(len(all_sets))],
-            columns=["itemsets", "support"],
-        )
+    # Generate dataframe from all frequent itemsets and their support
+    df = pd.DataFrame(
+        all_sets.items(),
+        index=[i for i in range(len(all_sets))],
+        columns=["itemsets", "support"],
+    )
 
-        return df
+    return df
 
 
 def _prune_by_upper_bound(hconf_threshold: float, pattern: Tuple[str], items: Dict[str, float]) -> bool:
