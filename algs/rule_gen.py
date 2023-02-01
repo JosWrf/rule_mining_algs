@@ -10,6 +10,7 @@ from algs.util import (
     independent_cosine,
     kulczynski,
     lift,
+    measure_dict,
 )
 
 
@@ -158,7 +159,7 @@ def __apriori_gen(old_candidates: List[Tuple[str]], k: int) -> List[Tuple[str]]:
         candidate
         for candidate in candidates
         if all(
-            candidate[:i] + candidate[i + 1:] in old_candidates
+            candidate[:i] + candidate[i + 1 :] in old_candidates
             for i in range(len(candidate))
         )
     ]
@@ -265,8 +266,7 @@ def transitive_reduction_of_informative_basis(
                 skip[j] = True
                 s_j = {}
             else:
-                s_j = {fci: supp for fci,
-                       supp in FC_j[j].items() if closure < set(fci)}
+                s_j = {fci: supp for fci, supp in FC_j[j].items() if closure < set(fci)}
             S.append(s_j)
 
         for j in range(len(S)):
@@ -293,8 +293,77 @@ def transitive_reduction_of_informative_basis(
     return ib
 
 
+def classification_rules(
+    frequent_itemsets: DataFrame, label: str, min_conf: float = 0.5
+) -> DataFrame:
+    """Constructs association rules from frequent itemsets directly.
+    The label is expected to be a singe string which is the attribute
+    of the consequent.
+
+    Args:
+        frequent_itemsets (DataFrame): Frequent itemsets to mine rules from.
+        label (str): Name of the class label attribute.
+        min_conf (float, optional): Minimum confidence threshold. Defaults to 0.5.
+
+    Returns:
+        DataFrame: All rules where the itemsets had the class label as an item.
+        This item is placed in the consequent and the rest of the items constitutes
+        the antecedent. 
+    """
+    # Map each item to its support
+    support_mapping = {
+        tuple(itemset[1]["itemsets"]): itemset[1]["support"]
+        for itemset in frequent_itemsets.iterrows()
+    }
+
+    # Skip over too short rules or itemset not containing the label
+    rules = []
+    for itemsets in frequent_itemsets.iterrows():
+        itemset = itemsets[1]["itemsets"]
+        support = itemsets[1]["support"]
+        if (
+            "ignore" in frequent_itemsets.columns
+            and itemsets[1]["ignore"] == True
+            or len(itemset) < 2
+            or all(label not in str(x) for x in itemset)
+            or support == 0
+        ):
+            continue
+
+        # Build antecedent and consequent
+        rule = {}
+        antecedent = []
+        consequent = None
+        for item in itemset:
+            if label not in str(item):
+                antecedent.append(item)
+            else:
+                consequent = (item,)
+
+        antecedent = tuple(antecedent)
+        conf = confidence(support_mapping[antecedent], support)
+        if conf < min_conf:
+            continue
+        rule["antecedents"] = antecedent
+        rule["consequents"] = consequent
+        rule["support"] = support
+        rule["confidence"] = conf
+        rule.update(
+            measure_dict(
+                support_mapping[antecedent],
+                support_mapping[consequent],
+                support
+            )
+        )
+        rules.append(rule)
+
+    return DataFrame(
+        rules,
+        index=[i for i in range(len(rules))],
+    )
+
 def get_classification_rules(rules: DataFrame, label: str) -> DataFrame:
-    """Post-Processing of rules, to only filter out rules, that have the 
+    """Post-Processing of rules, to only filter out rules, that have the
     classification label as the only consquent of the rule.
 
     Args:
@@ -305,14 +374,15 @@ def get_classification_rules(rules: DataFrame, label: str) -> DataFrame:
         DataFrame: All rules with only the label as consequent.
     """
     return rules.loc[
-        rules["consequents"].apply(lambda x: len(
-            x) == 1 and x[0].startswith(label))
+        rules["consequents"].apply(lambda x: len(x) == 1 and x[0].startswith(label))
     ]
 
 
-def prune_by_improvement(db: DataFrame, rules: DataFrame, minimp: float = 0.002) -> DataFrame:
-    """Calculates the improvement for all rules and prunes any rules that do not 
-    fulfill the minimp constraint. It also finds all the subrules that are not conatained 
+def prune_by_improvement(
+    db: DataFrame, rules: DataFrame, minimp: float = 0.002
+) -> DataFrame:
+    """Calculates the improvement for all rules and prunes any rules that do not
+    fulfill the minimp constraint. It also finds all the subrules that are not conatained
     within rules to stick to the definition of improvement.
 
     Args:
@@ -329,8 +399,10 @@ def prune_by_improvement(db: DataFrame, rules: DataFrame, minimp: float = 0.002)
     return _prune_by_improvement(potential_rules, supports, minimp)
 
 
-def _prune_by_improvement(rules: DataFrame, support_info: Dict[Tuple[int], Any], minimp: float) -> DataFrame:
-    """Uses all the support information stored in support info to calculate the max confidence of any 
+def _prune_by_improvement(
+    rules: DataFrame, support_info: Dict[Tuple[int], Any], minimp: float
+) -> DataFrame:
+    """Uses all the support information stored in support info to calculate the max confidence of any
     subrule for all the rules in the rules DataFrame.
 
     Args:
@@ -345,8 +417,9 @@ def _prune_by_improvement(rules: DataFrame, support_info: Dict[Tuple[int], Any],
     for idx, row in rules.iterrows():
         rule = row["antecedents"]
         items = sorted(rule)
-        itemsets = list(chain.from_iterable(combinations(
-            items, r) for r in range(1, len(items))))
+        itemsets = list(
+            chain.from_iterable(combinations(items, r) for r in range(1, len(items)))
+        )
         for itemset in itemsets:
             ant_sup = support_info[itemset]
             cons_sup = support_info[itemset + row["consequents"]]
@@ -358,7 +431,7 @@ def _prune_by_improvement(rules: DataFrame, support_info: Dict[Tuple[int], Any],
 
 
 def _compare_to_mined_rules(rules: DataFrame, minimp: float) -> DataFrame:
-    """Checks the improvement constraint for the set of mined rules by searching for 
+    """Checks the improvement constraint for the set of mined rules by searching for
     rules, whose antecedents are real subsets.
 
     Args:
@@ -382,10 +455,9 @@ def _compare_to_mined_rules(rules: DataFrame, minimp: float) -> DataFrame:
             raise Exception("Only a single attribute as antecedent allowed.")
         rule_items = set(row["antecedents"] + row["consequents"])
         rule_conf = row["confidence"]
-        for idx2 in range(idx+1, len(indices)):
+        for idx2 in range(idx + 1, len(indices)):
             other_row = rules.loc[[indices[idx2]]].iloc[0]
-            other_items = set(
-                other_row["antecedents"] + other_row["consequents"])
+            other_items = set(other_row["antecedents"] + other_row["consequents"])
             other_conf = other_row["confidence"]
 
             if other_items < rule_items and rule_conf - other_conf < minimp:
@@ -410,8 +482,9 @@ def _get_proper_subsets(rules: DataFrame) -> Dict[Tuple[Any], int]:
     for idx, row in rules.iterrows():
         rule = row["antecedents"]
         items = sorted(rule)
-        itemsets = set(chain.from_iterable(combinations(
-            items, r) for r in range(1, len(items))))
+        itemsets = set(
+            chain.from_iterable(combinations(items, r) for r in range(1, len(items)))
+        )
         for itemset in itemsets:
             required_sets.add(itemset + row["consequents"])
         required_sets.update(itemsets)
@@ -419,12 +492,14 @@ def _get_proper_subsets(rules: DataFrame) -> Dict[Tuple[Any], int]:
     return {itemset: 0 for itemset in required_sets}
 
 
-def _get_subset_supports(db: DataFrame, subsets: Dict[Tuple[Any], int]) -> Dict[Tuple[Any], int]:
+def _get_subset_supports(
+    db: DataFrame, subsets: Dict[Tuple[Any], int]
+) -> Dict[Tuple[Any], int]:
     """Counts the support for all subsets generated by the _get_proper_subsets function.
     It thereby increments the counts associated with each itemset.
 
     Args:
-        db (DataFrame): Database that was initially mined 
+        db (DataFrame): Database that was initially mined
         subsets (Dict[Tuple[Any], int]): All subsets with support set to 0
 
     Returns:
@@ -446,7 +521,7 @@ def _get_subset_supports(db: DataFrame, subsets: Dict[Tuple[Any], int]) -> Dict[
 
 def __compare_attribute(row: Series, item: str) -> bool:
     """Parses the string describing an item of the itemset to get the involved attributes
-    and values/interval boundaries. It then compares these informations with the 
+    and values/interval boundaries. It then compares these informations with the
     current db row.
 
     Args:
@@ -458,17 +533,21 @@ def __compare_attribute(row: Series, item: str) -> bool:
     """
     # Handle clustering {x,y} = [20,30] x [25,35]
     if item.startswith("{"):
-        attrlist = item[1:item.find("}")]
+        attrlist = item[1 : item.find("}")]
         names = [name.strip() for name in attrlist.split(",")]
-        lower_boundaries = [s.strip() for s in item[item.find(
-            "[") + 1: item.find("]")].split(",")]
-        second_interval = item[item.find("x")+3:]
-        upper_boundaries = [s.strip() for s in second_interval[: second_interval.find(
-            "]")].split(",")]
+        lower_boundaries = [
+            s.strip() for s in item[item.find("[") + 1 : item.find("]")].split(",")
+        ]
+        second_interval = item[item.find("x") + 3 :]
+        upper_boundaries = [
+            s.strip() for s in second_interval[: second_interval.find("]")].split(",")
+        ]
 
         for i in range(len(names)):
             name = names[i]
-            if row[name] < float(lower_boundaries[i]) and row[name] > float(upper_boundaries[i]):
+            if row[name] < float(lower_boundaries[i]) and row[name] > float(
+                upper_boundaries[i]
+            ):
                 return False
         return True
 
@@ -478,7 +557,10 @@ def __compare_attribute(row: Series, item: str) -> bool:
         # Numeric attributes: x = 123..456
         if attributes[1].find("..") >= 0:
             lower_upper = attributes[1].split("..")
-            return float(lower_upper[0]) <= row[name] and float(lower_upper[1]) >= row[name]
+            return (
+                float(lower_upper[0]) <= row[name]
+                and float(lower_upper[1]) >= row[name]
+            )
         else:
             # Categorical attributes: gender = female
             return str(row[name]) == attributes[1]
