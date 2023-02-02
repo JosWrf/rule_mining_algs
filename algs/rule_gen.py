@@ -544,15 +544,12 @@ def __compare_attribute(row: Series, item: str) -> bool:
         return True
 
     else:
-        attributes = [attribute.strip() for attribute in item.split("=")]
-        name = attributes[0]
-        # Numeric attributes: x = 123..456
-        if attributes[1].find("..") >= 0:
-            lower_upper = attributes[1].split("..")
-            return (
-                float(lower_upper[0]) <= row[name]
-                and float(lower_upper[1]) >= row[name]
-            )
+        name, _, value = item.partition("=")
+        name = name.strip()
+        value = value.strip()
+        if ".." in value:
+            # Numeric attributes: x = 123..456
+            lower, _, upper = value.partition("..")
+            return float(lower) <= row[name] <= float(upper)
         else:
-            # Categorical attributes: gender = female
-            return str(row[name]) == attributes[1]
+            return str(row[name]) == value
