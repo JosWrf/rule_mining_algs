@@ -27,10 +27,7 @@ def generate_rules(frequent_itemsets: DataFrame, min_conf: float = 0.5) -> DataF
     Returns:
         DataFrame: All rules satisfying the constraints.
     """
-    support_mapping = {
-        tuple(itemset[1]["itemsets"]): itemset[1]["support"]
-        for itemset in frequent_itemsets.iterrows()
-    }
+    support_mapping = frequent_itemsets.set_index("itemsets").to_dict()["support"]
 
     def __ap_genrules(
         itemset: Series, consequents: List[Tuple[str]], m: int
@@ -311,24 +308,20 @@ def classification_rules(
         the antecedent. 
     """
     # Map each item to its support
-    support_mapping = {
-        tuple(itemset[1]["itemsets"]): itemset[1]["support"]
-        for itemset in frequent_itemsets.iterrows()
-    }
+    support_mapping = frequent_itemsets.set_index("itemsets").to_dict()["support"]
 
     # Skip over too short rules or itemset not containing the label
+    frequent_itemsets = frequent_itemsets[(frequent_itemsets['itemsets'].map(len) >= 2) &
+        (frequent_itemsets['itemsets'].map(lambda x: any(label in str(i) for i in x))) &
+        (frequent_itemsets['support'] != 0)]
+    
+    if "ignore" in frequent_itemsets.columns:
+        frequent_itemsets = frequent_itemsets[(frequent_itemsets["ignore"] != True)]
+
     rules = []
-    for itemsets in frequent_itemsets.iterrows():
-        itemset = itemsets[1]["itemsets"]
-        support = itemsets[1]["support"]
-        if (
-            "ignore" in frequent_itemsets.columns
-            and itemsets[1]["ignore"] == True
-            or len(itemset) < 2
-            or all(label not in str(x) for x in itemset)
-            or support == 0
-        ):
-            continue
+    for idx, row in frequent_itemsets.iterrows():
+        itemset = row["itemsets"]
+        support = row["support"]
 
         # Build antecedent and consequent
         rule = {}
@@ -344,10 +337,7 @@ def classification_rules(
         conf = confidence(support_mapping[antecedent], support)
         if conf < min_conf:
             continue
-        rule["antecedents"] = antecedent
-        rule["consequents"] = consequent
-        rule["support"] = support
-        rule["confidence"] = conf
+        rule = {"antecedents": antecedent, "consequents": consequent, "support": support, "confidence": conf}
         rule.update(
             measure_dict(
                 support_mapping[antecedent],
@@ -444,26 +434,28 @@ def _compare_to_mined_rules(rules: DataFrame, minimp: float) -> DataFrame:
     Returns:
         DataFrame: Pruned ruleset using the above condition.
     """
+    if (rules["consequents"].map(len) > 1).any():
+        raise Exception("Only a single attribute as antecedent allowed.")
     drop_rows = set()
-
-    indices = list(rules.index)
-    for idx in range(len(indices)):
-        if indices[idx] in drop_rows:
-            continue
-        row = rules.loc[[indices[idx]]].iloc[0]
-        if len(row["consequents"]) > 1:
-            raise Exception("Only a single attribute as antecedent allowed.")
-        rule_items = set(row["antecedents"] + row["consequents"])
-        rule_conf = row["confidence"]
-        for idx2 in range(idx + 1, len(indices)):
-            other_row = rules.loc[[indices[idx2]]].iloc[0]
-            other_items = set(other_row["antecedents"] + other_row["consequents"])
-            other_conf = other_row["confidence"]
-
-            if other_items < rule_items and rule_conf - other_conf < minimp:
-                drop_rows.add(indices[idx])
-            elif rule_items < other_items and other_conf - rule_conf < minimp:
-                drop_rows.add(indices[idx2])
+    
+    # Preprocess the DataFrame
+    rules.loc[:,'rule_items'] = rules.apply(lambda x: frozenset(x['antecedents'] + x['consequents']), axis=1)
+    unique_rules = rules.drop_duplicates(subset='rule_items')
+    
+    rule_lookup = dict()
+    for _, row in unique_rules.iterrows():
+        rule_items = row['rule_items']
+        rule_conf = row['confidence']
+        for key, value in rule_lookup.items():
+            if key < rule_items and rule_conf - value < minimp:
+                drop_rows.add(row.name)
+                break
+            elif rule_items < key:
+                drop_rows.add(unique_rules[unique_rules['rule_items'] == key].index[0])
+                rule_lookup[rule_items] = rule_conf
+                break
+        else:
+            rule_lookup[rule_items] = rule_conf
 
     return rules.drop(index=drop_rows)
 
@@ -479,14 +471,14 @@ def _get_proper_subsets(rules: DataFrame) -> Dict[Tuple[Any], int]:
         Dict[Tuple[Any], int]: Itemsets with count 0
     """
     required_sets = set()
-    for idx, row in rules.iterrows():
-        rule = row["antecedents"]
+    for row in rules.itertuples(index=False, name=None):
+        rule = row[0]
         items = sorted(rule)
         itemsets = set(
             chain.from_iterable(combinations(items, r) for r in range(1, len(items)))
         )
         for itemset in itemsets:
-            required_sets.add(itemset + row["consequents"])
+            required_sets.add(itemset + row[1])
         required_sets.update(itemsets)
 
     return {itemset: 0 for itemset in required_sets}
