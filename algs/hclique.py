@@ -32,7 +32,7 @@ def hclique(dataframe: DataFrame, hconf_threshold: float = 0.5, support_threshol
     k = 1
 
     while len(frequent_k_itemsets) != 0:
-        hash_tree = HashTree()
+        hash_tree = HashTree(max_size=570)
 
         for candidate_set in _generate_itemsets_by_join(frequent_k_itemsets, k):
             # Prune wrt. antimonotone property of support/h-conf and cross-support upper bound of h-conf
