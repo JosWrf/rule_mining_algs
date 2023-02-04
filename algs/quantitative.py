@@ -1,5 +1,6 @@
 from math import ceil, floor
 from typing import Any, Dict, Iterator, Set, Tuple
+import numpy as np
 
 import pandas as pd
 from mlxtend.preprocessing import TransactionEncoder
@@ -24,7 +25,7 @@ def partition_intervals(
     """
     if equi_depth:
         # Determine the new number of labels
-        _,y = pd.qcut(
+        _, y = pd.qcut(
             x=db[attribute],
             q=num_intervals,
             retbins=True,
@@ -262,16 +263,11 @@ def count_support(
     Returns:
         Dict[Tuple[Item], int]: Itemsets with their support
     """
-    def __count_supp(row: pd.Series) -> None:
-        for its in items.keys():
-            count = 0
-            for it in its:
-                if row[it.name] >= it.lower and row[it.name] <= it.upper:
-                    count += 1
-            if count == len(its):
-                items[its] += 1
-
-    db.apply(__count_supp, axis=1)
+    for its in items.keys():
+        conditions = [(db[it.name] >= it.lower) & (
+            db[it.name] <= it.upper) for it in its]
+        mask = np.column_stack(conditions).all(axis=1)
+        items[its] = mask.sum()
 
     if drop:
         return {item: supp for item, supp in items.items() if supp / len(db) >= minsupp}
@@ -322,7 +318,7 @@ def find_frequent_items(
             if norm_supp < max_supp:
                 seeds[item] = supp
 
-        while len(seeds) != 0:
+        while seeds:
 
             candidates = {}
             for item, supp in seeds.items():
@@ -330,8 +326,7 @@ def find_frequent_items(
                 if norm >= min_supp:
                     intervals[item] = supp
                 if norm < max_supp:
-                    lower = item[0].lower
-                    upper = item[0].upper
+                    lower, upper = item[0].lower, item[0].upper
                     if lower > min_lower:
                         it = Item(item[0].name, lower - 1, upper)
                         for item, sup in itemsets.items():
@@ -374,59 +369,6 @@ def find_frequent_items(
         frequent_items.update(itemsets)
 
     return frequent_items
-
-
-def _generate_itemsets_by_join(
-    old_itemsets: Dict[Tuple[Item], int], k: int
-) -> Iterator[Tuple[str]]:
-    """Joins frequent k-1 itemsets to generate k itemsets.
-    It assumes the frequent k-1 itemsets are lexicographically ordered .
-
-    Args:
-        old_itemsets (Dict[Tule[Item], int]): Frequent k-1 itemsets
-        k (int): The number of items that must match to join two frequent k-1 itemsets
-
-    Yields:
-        Iterator[Tuple[str]]: A candidate k itemset
-    """
-    for itemset in old_itemsets.keys():
-        for other in old_itemsets.keys():
-            skip = False
-            for l in range(k - 1):
-                if itemset[l] != other[l]:
-                    skip = True
-                    break
-
-            # If the last attribute matches this will evaluate to false
-            if not skip and itemset[k - 1] < other[k - 1]:
-                yield itemset + (
-                    Item(other[k - 1].name, other[k - 1].lower,
-                         other[k - 1].upper),
-                )
-
-
-def _is_candidate(
-    old_itemsets: Dict[Tuple[Item], int], candidate_set: Tuple[Item]
-) -> bool:
-    """Checks whether there's any subset contained in the candidate_set, that isn't
-    contained within the old_itemsets. If that is the case the candidate set can not
-    be a frequent itemset and False is returned.
-
-    Args:
-        old_itemsets (List[Tuple[Item], int]): Frequent itemsets of length k
-        candidate_set (Tuple[Item]): Candidate itemset with length k+1
-
-    Returns:
-        bool: True if all k-1 element subsets of candidate_set are contained within old_itemsets.
-    """
-    if len(candidate_set) == 2:
-        return True
-
-    for i in range(len(candidate_set)):
-        if not candidate_set[0:i] + candidate_set[i + 1:] in old_itemsets:
-            return False
-
-    return True
 
 
 def _prune_by_r_interest(
@@ -646,6 +588,52 @@ def remove_r_uninteresting_itemsets(
     return r_interesting_itemsets, elements_to_remove
 
 
+def _generate_itemsets_by_join(
+    old_itemsets: Dict[Tuple[Item], int], k: int
+) -> Iterator[Tuple[str]]:
+    """Joins frequent k-1 itemsets to generate k itemsets.
+    It assumes the frequent k-1 itemsets are lexicographically ordered .
+
+    Args:
+        old_itemsets (Dict[Tule[Item], int]): Frequent k-1 itemsets
+        k (int): The number of items that must match to join two frequent k-1 itemsets
+
+    Yields:
+        Iterator[Tuple[str]]: A candidate k itemset
+    """
+    new_candidates = {}
+
+    for itemset in old_itemsets.keys():
+        for other in old_itemsets.keys():
+            if all(itemset[i] == other[i] for i in range(k-1)) and itemset[k-1] < other[k-1]:
+                new_candidates[
+                    itemset + (
+                        Item(other[k - 1].name, other[k - 1].lower,
+                             other[k - 1].upper),
+                    )] = 0
+    return new_candidates
+
+
+def _downward_closure(old_itemsets: Dict[Tuple[Item], int], candidates: Dict[Tuple[Item], int]) -> Dict[Tuple[Item], int]:
+    """Uses the downward closure property of support to prune any k-itemsets, which do 
+    have at least one k-1 itemset, which is not frequent.
+
+    Args:
+        old_itemsets (Dict[Tuple[Item], int]): Frequenkt k-1 itemsets
+        candidates (Dict[Tuple[Item], int]): Potential k itemsets
+
+    Returns:
+        Dict[Tuple[Item], int]: Pruned potential k itemsets
+    """
+    result = {}
+    for candidate in candidates:
+        found = all(candidate[0:i] + candidate[i + 1:]
+                    in old_itemsets for i in range(len(candidate)))
+        if found:
+            result[candidate] = 0
+    return result
+
+
 def quantitative_itemsets(
     db: DataFrame,
     discretization: Dict[str, int],
@@ -681,12 +669,11 @@ def quantitative_itemsets(
         frequent_items, discretization, R, len(db))
     frequent_k_itemsets = frequent_items.copy()
     k = 1
+    to_remove = {}
 
     while len(frequent_k_itemsets) != 0:
-        candidates = {}
-        for candidate_set in _generate_itemsets_by_join(frequent_k_itemsets, k):
-            if _is_candidate(frequent_k_itemsets, candidate_set):
-                candidates[candidate_set] = 0
+        candidates = _generate_itemsets_by_join(frequent_k_itemsets, k)
+        candidates = _downward_closure(frequent_k_itemsets, candidates)
 
         frequent_k_itemsets = count_support(encoded_db, candidates, minsupp)
 
@@ -697,39 +684,16 @@ def quantitative_itemsets(
         frequent_items, to_remove = remove_r_uninteresting_itemsets(
             encoded_db, frequent_items, R)
 
-    # Map resulting itemsets back to their (interval) values
     itemsets = []
-    for itemset, support in frequent_items.items():
+    for itemset, support in {**frequent_items, **to_remove}.items():
         items = []
         for item in itemset:
             vals = mappings[item.name]
             lower = vals[item.lower]
             upper = vals[item.upper]
-            if discretization[item.name] == 0:
-                assert lower == upper
-                items.append(f"{item.name} = {lower}")
-            else:
-                items.append(f"{item.name} = {lower[0]}..{upper[1]}")
-        itemsets.append({"itemsets": tuple(items),
-                        "support": support / len(db),
-                         "ignore": False})
+            item_value = f"{lower[0]}..{upper[1]}" if discretization[item.name] else f"{lower}"
+            items.append(f"{item.name} = {item_value}")
+        itemsets.append({"itemsets": tuple(
+            items), "support": support / len(db), "ignore": itemset in to_remove})
 
-    # Weave in the items that shall be ignored
-    if R != 0:
-        for itemset, support in to_remove.items():
-            items = []
-            for item in itemset:
-                vals = mappings[item.name]
-                lower = vals[item.lower]
-                upper = vals[item.upper]
-                if discretization[item.name] == 0:
-                    assert lower == upper
-                    items.append(f"{item.name} = {lower}")
-                else:
-                    items.append(f"{item.name} = {lower[0]}..{upper[1]}")
-            itemsets.append({"itemsets": tuple(items),
-                            "support": support / len(db),
-                             "ignore": True})
-
-    df = pd.DataFrame(itemsets)
-    return df
+    return pd.DataFrame(itemsets)
