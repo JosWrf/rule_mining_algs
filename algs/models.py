@@ -86,24 +86,24 @@ class StandardMiner(Model):
     """Uses the fp_growth algorithm to mine frequent itemsets.
     """
 
-    def __init__(self, transformer: Callable = None) -> None:
-        super().__init__(transformer, fp_growth, generate_rules)
+    def __init__(self, transformer: Callable = None, gen_rules: Callable =  generate_rules) -> None:
+        super().__init__(transformer, fp_growth, gen_rules)
 
 
 class HyperCliqueMiner(Model):
     """Uses the hyperclique miner for mining frequent itemsets.
     """
 
-    def __init__(self, transformer: Callable = None) -> None:
-        super().__init__(transformer, hclique, generate_rules)
+    def __init__(self, transformer: Callable = None, gen_rules: Callable =  generate_rules) -> None:
+        super().__init__(transformer, hclique, gen_rules)
 
 
 class QuantitativeMiner(Model):
     """Uses the quantitative miner with dynamic interval boundaries.
     """
 
-    def __init__(self) -> None:
-        super().__init__(None, quantitative_itemsets, generate_rules)
+    def __init__(self, gen_rules: Callable = generate_rules) -> None:
+        super().__init__(None, quantitative_itemsets, gen_rules)
 
 
 class MinimalNonRedudantMiner(Model):
