@@ -80,41 +80,6 @@ class RuleIndividuum:
 
         return items
 
-    def matches(self, record: pd.Series) -> np.ndarray:
-        """Tries to match the current dataframe series against the genes stored in the
-        individuum. If the antecedent matches the antecedent_support is incremented.
-        If the entire rule is applicable the support is incremented aswell.
-        In this case a 0/1 array will be returned.
-        Otherwise a zero array is returned.
-
-        Args:
-            record (pd.Series): Current row of the database
-
-        Returns:
-            np.ndarray: Zero array if no attribute matched. Otherwise 1 entries indicate
-            the given attribute was matched
-        """
-        marked = []
-        match = True
-        arr = np.zeros(len(record))
-
-        for name, gene in self.items.items():
-            val = record[name]
-            if (gene.is_numerical() and (val > gene.upper or val < gene.lower)) or (not gene.is_numerical() and val != gene.value):
-                match = False
-                continue
-            marked.append(name)
-
-        if match:
-            self.support += 1
-            self.antecedent_supp += 1
-        elif len(marked) == len(self.items) - 1 and not self.consequent in marked:
-            self.antecedent_supp += 1
-
-        boolean_arr = np.array(
-            [1 if idx in marked else 0 for idx, _ in record.items()])
-        return boolean_arr if len(marked) == len(self.items) else arr
-
     def matching_attributes(self, record: pd.Series) -> List[str]:
         marked = []
         for name, gene in self.items.items():
@@ -260,17 +225,27 @@ def _count_support(db: pd.DataFrame, marked_rows: pd.DataFrame, population: List
         population (List[RuleIndividuum]): Current Population
     """
     for individuum in population:
-        individuum.reset_counts()
-        mask = db.apply(individuum.matches, axis=1)
-        bool_mask = (mask.apply(lambda x: x.sum() !=
-                                0)) & (marked_rows.sum(axis=1) != 0)
-        if bool_mask.any():
-            relevant_rows = marked_rows.loc[bool_mask]
-            mask = np.stack(mask.loc[bool_mask].values)
-            relevant_rows = relevant_rows.to_numpy()
-            col_sums = np.sum(relevant_rows, axis=1)
-            result = mask * relevant_rows
-            individuum.re_coverage += np.sum(np.sum(result, axis=1) / col_sums)
+        relevant_rows = [name for name in individuum.items.keys()]
+        relevant_db = pd.DataFrame(columns=[relevant_rows])
+
+        for name, gene in individuum.items.items():
+            if gene.numerical:
+                relevant_db[name] = db[name].between(
+                    gene.lower, gene.upper)
+
+            else:
+                relevant_db[name] = (db[name] == gene.value)
+
+        individuum.support = relevant_db.all(axis=1).sum()
+        individuum.antecedent_supp = relevant_db.drop(
+            individuum.consequent, axis=1, level=0).all(axis=1).sum()
+
+        mask = (relevant_db.all(axis=1)) & (marked_rows.sum(axis=1) != 0)
+        column_sums = marked_rows.loc[mask].sum(axis=1)
+        if column_sums.any():
+            relevant_coverage = marked_rows[relevant_rows].loc[mask].sum(
+                axis=1) / column_sums
+            individuum.re_coverage = relevant_coverage.sum()
 
 
 def _count_consequent_support(db: pd.DataFrame, final_rule_set: List[RuleIndividuum]) -> None:
@@ -414,5 +389,6 @@ def gar_plus(db: pd.DataFrame, num_cat_attrs: Dict[str, bool], num_rules: int, n
 
     # Final count of consequent support to calculate the rule measures
     _count_consequent_support(db, best_rules_found)
+
     # Return a dataframe containing rules only
     return pd.DataFrame([rule.to_dict(len(db)) for rule in best_rules_found]).drop_duplicates()
