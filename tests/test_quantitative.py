@@ -203,3 +203,13 @@ class TestDiscretization:
         # Test presence of clustered attributes
         assert any(name.startswith("{age, num_cars}")
                    for name in result.columns)
+
+    def test_cluster_interval_data(self):
+        self._setup()
+        # Causes two clusters of age to be built
+        attr_thresholds = {("num_cars", "age"): 2}
+        result = cluster_interval_data(self.data.drop(
+            ["married"], axis=1), attr_thresholds, True)
+
+        # There should be exactly 2 columns
+        assert len(result.columns) == 2

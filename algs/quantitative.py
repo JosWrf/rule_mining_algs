@@ -156,7 +156,7 @@ def _static_discretization(
     return df
 
 
-def cluster_interval_data(db: DataFrame, attr_threshold: Dict[Tuple[str], float]) -> DataFrame:
+def cluster_interval_data(db: DataFrame, attr_threshold: Dict[Tuple[str], float], num_clusters: bool = False) -> DataFrame:
     """Clusters interval data, using the birch clustering algorithm as described in
     'Association Rules over Interval Data'. The threshold is the upper bound of the
     radius of subclusters. Further the clusters are described by their smallest bounding box.
@@ -164,7 +164,9 @@ def cluster_interval_data(db: DataFrame, attr_threshold: Dict[Tuple[str], float]
     Args:
         db (DataFrame): Dataset, to mine quantitative association rules from
         attr_threshold (Dict[Tuple[str], float]): Maps attribute (sets) to their radius threshold, which
-        in turn determines the cluster quality
+        in turn determines the cluster quality. If num_clusters is set, the determined number of 
+        clusters is generated instead.
+        num_clusters (bool): If set to True the thresholds are interpreted as number of clusters. 
 
     Returns:
         DataFrame: One column for each attribute, value pair of all attributes (after clustering).
@@ -182,7 +184,8 @@ def cluster_interval_data(db: DataFrame, attr_threshold: Dict[Tuple[str], float]
         attributes = list(attributes)
 
         # Use birch clustering alg and calculate bounding boxes to represent clusters
-        brc = Birch(n_clusters=None, threshold=radius, copy=True)
+        brc = Birch(n_clusters=int(radius) if num_clusters else None,
+                    threshold=0.5 if num_clusters else radius, copy=True)
         data[name] = brc.fit_predict(data[attributes])
         mins = data.groupby(name).min(numeric_only=True)[
             attributes].to_dict("tight")
