@@ -449,23 +449,27 @@ def _compare_to_mined_rules(rules: DataFrame, minimp: float) -> DataFrame:
     # Preprocess the DataFrame
     rules['rule_items'] = rules.apply(
         lambda x: frozenset(x['antecedents'] + x['consequents']), axis=1)
-    unique_rules = rules.drop_duplicates(subset='rule_items')
 
-    rule_lookup = dict()
-    for _, row in unique_rules.iterrows():
-        rule_items = row['rule_items']
-        rule_conf = row['confidence']
-        for key, value in rule_lookup.items():
-            if key < rule_items and rule_conf - value < minimp:
-                drop_rows.add(row.name)
-                break
-            elif rule_items < key:
-                drop_rows.add(
-                    unique_rules[unique_rules['rule_items'] == key].index[0])
-                rule_lookup[rule_items] = rule_conf
-                break
-        else:
-            rule_lookup[rule_items] = rule_conf
+    if len(rules) > 100000:
+        for row in rules.sort_values(by="rule_items", key=lambda x: x.map(len)).iloc[:1250].itertuples():
+            if row[0] in drop_rows:
+                continue
+            rule_items = row[-1]
+            rule_conf = row[4]
+            temp = (rules.loc[rules["rule_items"] > rule_items,"confidence"] - rule_conf  < minimp)
+            if temp.any():
+                drop_rows.update(temp.loc[temp == True].index)
+
+
+    rules = rules.drop(drop_rows)
+    drop_rows.clear()
+
+    for row in rules.itertuples():
+        rule_items = row[-1]
+        rule_conf = row[4]
+        temp = (rules.loc[rules["rule_items"] > rule_items,"confidence"] - rule_conf  < minimp)
+        if temp.any():
+            drop_rows.update(temp.loc[temp == True].index)
 
     return rules.drop(index=drop_rows).drop(labels=["rule_items"], axis=1)
 
