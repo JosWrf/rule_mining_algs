@@ -12,12 +12,14 @@ from algs.rule_gen import (
     generate_rules,
     generic_basis,
     get_classification_rules,
+    get_tidlists,
     prune_by_improvement,
     transitive_reduction_of_informative_basis,
 )
 
 
 class TestRuleGeneration:
+
     def _setup(self) -> None:
         data = [  # Data-Mining context from Fast Mining of Association Rules
             [1, 3, 4],
@@ -37,8 +39,10 @@ class TestRuleGeneration:
         assert len(result) == 14
         assert result["confidence"].min() == 2 / 3
         assert result["confidence"].max() == 1.0
-        assert all(len(consequent) <= 2 for consequent in result["consequents"])
-        assert all(len(antecedent) <= 2 for antecedent in result["antecedents"])
+        assert all(
+            len(consequent) <= 2 for consequent in result["consequents"])
+        assert all(
+            len(antecedent) <= 2 for antecedent in result["antecedents"])
 
     def test_rule_gen_w_pruning(self):
         self._setup()
@@ -47,18 +51,34 @@ class TestRuleGeneration:
         # rules with confidence = 1 and nine with confidence = 2/3
         assert len(result) == 5
         assert all(value == 1.0 for value in result["confidence"].to_numpy())
-        assert all(len(consequent) <= 2 for consequent in result["consequents"])
-        assert all(len(antecedent) <= 2 for antecedent in result["antecedents"])
+        assert all(
+            len(consequent) <= 2 for consequent in result["consequents"])
+        assert all(
+            len(antecedent) <= 2 for antecedent in result["antecedents"])
 
     def test_rule_gen_w_ignore(self):
-        itemsets = pd.DataFrame(
-            [
-                {"itemsets": (1, 2), "support": 0.2, "ignore": True},
-                {"itemsets": (3, 5), "support": 2 / 3, "ignore": False},
-                {"itemsets": (3,), "support": 2 / 3, "ignore": True},
-                {"itemsets": (5,), "support": 0.5, "ignore": False},
-            ]
-        )
+        itemsets = pd.DataFrame([
+            {
+                "itemsets": (1, 2),
+                "support": 0.2,
+                "ignore": True
+            },
+            {
+                "itemsets": (3, 5),
+                "support": 2 / 3,
+                "ignore": False
+            },
+            {
+                "itemsets": (3, ),
+                "support": 2 / 3,
+                "ignore": True
+            },
+            {
+                "itemsets": (5, ),
+                "support": 0.5,
+                "ignore": False
+            },
+        ])
         result = generate_rules(itemsets, 0.0)
         # The 1-itemsets generate no rules and itemset {1,2} should be ignored
         assert len(result) == 2
@@ -71,6 +91,7 @@ class TestRuleGeneration:
 
 
 class TestImprovement:
+
     def _setup(self) -> None:
         data = [  # Data Mining and Analysis:Fundamental Concepts and Algorithms Contents Table 12.1
             ["A", "B", "D", "E"],
@@ -98,9 +119,8 @@ class TestImprovement:
         assert len(rules) == 2  # E -> C, B -> C
 
     def test_get_proper_subsets(self):
-        rule = pd.DataFrame(
-            columns=["antecedents", "consequents"], data=[[("A", "B", "C"), ("D",)]]
-        )
+        rule = pd.DataFrame(columns=["antecedents", "consequents"],
+                            data=[[("A", "B", "C"), ("D", )]])
         result = _get_proper_subsets(rule)
         # (2**3 - 2) * 2 = 12 -> Every powerset for the antecedents
         # and then the consequent is added to each subset
@@ -109,18 +129,18 @@ class TestImprovement:
     def test_get_subset_support(self):
         data = pd.DataFrame([{"x": 10, "y": 22.4, "sex": "m"}])
         subsets = {
-            ("sex = m",): 0,
-            ("x = 4..10",): 0,
-            ("{y} = [20] x [25]",): 0,
+            ("sex = m", ): 0,
+            ("x = 4..10", ): 0,
+            ("{y} = [20] x [25]", ): 0,
             ("sex = f", "x = 2..12"): 0,
-            ("{x,y} = [9,15] x [11, 22.5]",): 0,
+            ("{x,y} = [9,15] x [11, 22.5]", ): 0,
         }
         result = _get_subset_supports(data, subsets)
         print(result)
         for itemset, count in result.items():
             if itemset == (
-                "sex = f",
-                "x = 2..12",
+                    "sex = f",
+                    "x = 2..12",
             ):
                 assert count == 0
             else:
@@ -131,7 +151,11 @@ class TestImprovement:
         data["age"] = [23, 25, 29, 34, 38]
         data["married"] = ["no", "yes", "no", "yes", "yes"]
         data["num_cars"] = [1, 1, 0, 2, 2]
-        df = static_discretization(data, {"age": 2, "married": 0, "num_cars": 0}, True)
+        df = static_discretization(data, {
+            "age": 2,
+            "married": 0,
+            "num_cars": 0
+        }, True)
         items = apriori(df)
         rules = get_classification_rules(generate_rules(items), "married")
         # 6 rules that have no sub_rule
@@ -139,8 +163,22 @@ class TestImprovement:
         result = prune_by_improvement(data, rules)
         assert len(result) == 6
 
+    def test_get_tidlists(self):
+        self._setup()
+        rules = pd.DataFrame([{
+            "antecedents": ("D", ),
+            "consequents": ("E", )
+        }, {
+            "antecedents": ("A", ),
+            "consequents": ("E", "B")
+        }])
+        result = get_tidlists(self.transactions, rules)
+        assert result.loc[0, "tidlists"] == {0, 2, 4}
+        assert result.loc[1, "tidlists"] == {0, 2, 3, 4}
+
 
 class TestMinimalNonRedundantRules:
+
     def _setup_fcs(self, min_support: float = 2 / 6) -> None:
         data = [  # Data-Mining context from Mining non-redundant ARs paper
             ["A", "C", "D"],
@@ -168,8 +206,8 @@ class TestMinimalNonRedundantRules:
 
         assert len(gb) == 7  # Table 2 in the paper shows solutions
         assert {
-            "antecedents": ("A",),
-            "consequents": ("C",),
+            "antecedents": ("A", ),
+            "consequents": ("C", ),
             "support": 3 / 6,
             "confidence": 1,
         } in gb
@@ -183,7 +221,7 @@ class TestMinimalNonRedundantRules:
 
         assert {
             "antecedents": ("C", "E"),
-            "consequents": ("B",),
+            "consequents": ("B", ),
             "support": 4 / 6,
             "confidence": 1,
         } in gb
@@ -197,7 +235,8 @@ class TestMinimalNonRedundantRules:
             )
             for itemset in self.fcs.iterrows()
         }
-        ib = transitive_reduction_of_informative_basis(gen_to_cls, min_conf=3 / 6)
+        ib = transitive_reduction_of_informative_basis(gen_to_cls,
+                                                       min_conf=3 / 6)
 
         assert len(ib) == 7
 
@@ -210,15 +249,15 @@ class TestMinimalNonRedundantRules:
         } in ib
 
         assert {
-            "antecedents": ("A",),
+            "antecedents": ("A", ),
             "consequents": ("B", "C", "E"),
             "support": 2 / 6,
             "confidence": 2 / 3,
         } in ib
 
         assert {
-            "antecedents": ("C",),
-            "consequents": ("A",),
+            "antecedents": ("C", ),
+            "consequents": ("A", ),
             "support": 3 / 6,
             "confidence": 3 / 5,
         } in ib

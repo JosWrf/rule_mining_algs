@@ -1,3 +1,4 @@
+from collections import defaultdict
 from itertools import chain, combinations
 from typing import Any, Dict, Iterator, List, Tuple
 from pandas import DataFrame, Series
@@ -14,7 +15,8 @@ from algs.util import (
 )
 
 
-def generate_rules(frequent_itemsets: DataFrame, min_conf: float = 0.5) -> DataFrame:
+def generate_rules(frequent_itemsets: DataFrame,
+                   min_conf: float = 0.5) -> DataFrame:
     """Generates all rules that satisfy the minimum confidence constraint for all frequent itemsets.
     This algorithm is described in 'Fast Algorithms for Mining Association Rules'
     on p.14.
@@ -30,9 +32,8 @@ def generate_rules(frequent_itemsets: DataFrame, min_conf: float = 0.5) -> DataF
     support_mapping = frequent_itemsets.set_index(
         "itemsets").to_dict()["support"]
 
-    def __ap_genrules(
-        itemset: Series, consequents: List[Tuple[str]], m: int
-    ) -> Iterator[Dict[str, Any]]:
+    def __ap_genrules(itemset: Series, consequents: List[Tuple[str]],
+                      m: int) -> Iterator[Dict[str, Any]]:
         """Checks the minimum confidence constraint for all rules that can be built with the consequents
         in the consequents argument and yields them. The consequences are extended as long as the size is smaller than
         the size of the corresponding itemset and the frontier is not empty.
@@ -51,41 +52,50 @@ def generate_rules(frequent_itemsets: DataFrame, min_conf: float = 0.5) -> DataF
             support_rule = itemset["support"]
             if support_rule == 0:
                 continue
-            antecedent = tuple(
-                [item for item in itemset["itemsets"] if item not in consequent]
-            )
+            antecedent = tuple([
+                item for item in itemset["itemsets"] if item not in consequent
+            ])
             conf = confidence(support_mapping[antecedent], support_rule)
             if conf >= min_conf:
                 new_consequents.append(consequent)
                 yield {
-                    "antecedents": antecedent,
-                    "consequents": consequent,
-                    "support": support_rule,
-                    "confidence": conf,
-                    "cosine": cosine(
+                    "antecedents":
+                    antecedent,
+                    "consequents":
+                    consequent,
+                    "support":
+                    support_rule,
+                    "confidence":
+                    conf,
+                    "cosine":
+                    cosine(
                         support_mapping[antecedent],
                         support_mapping[consequent],
                         support_rule,
                     ),
-                    "idependent_cosine": independent_cosine(
-                        support_mapping[antecedent], support_mapping[consequent]
-                    ),
-                    "lift": lift(
+                    "idependent_cosine":
+                    independent_cosine(support_mapping[antecedent],
+                                       support_mapping[consequent]),
+                    "lift":
+                    lift(
                         support_mapping[antecedent],
                         support_mapping[consequent],
                         support_rule,
                     ),
-                    "conviction": conviction(
+                    "conviction":
+                    conviction(
                         support_mapping[antecedent],
                         support_mapping[consequent],
                         support_rule,
                     ),
-                    "imbalance_ratio": imbalance_ratio(
+                    "imbalance_ratio":
+                    imbalance_ratio(
                         support_mapping[antecedent],
                         support_mapping[consequent],
                         support_rule,
                     ),
-                    "kulczynksi": kulczynski(
+                    "kulczynksi":
+                    kulczynski(
                         support_mapping[antecedent],
                         support_mapping[consequent],
                         support_rule,
@@ -93,16 +103,17 @@ def generate_rules(frequent_itemsets: DataFrame, min_conf: float = 0.5) -> DataF
                 }
 
         if len(itemset["itemsets"]) > m + 1:
-            yield from __ap_genrules(
-                itemset, __apriori_gen(new_consequents, m - 1), m + 1
-            )
+            yield from __ap_genrules(itemset,
+                                     __apriori_gen(new_consequents, m - 1),
+                                     m + 1)
 
     rules = []
     for itemsets in frequent_itemsets.iterrows():
         itemset = itemsets[1]["itemsets"]
         # Some algorithms prune itemsets, but their support information would still be
         # required. This itemsets are added to the df but ignore is True for them.
-        if "ignore" in frequent_itemsets.columns and itemsets[1]["ignore"] == True:
+        if "ignore" in frequent_itemsets.columns and itemsets[1][
+                "ignore"] == True:
             continue
         if len(itemset) >= 2:
             consequents = __get_1_item_consequents(itemset)
@@ -126,10 +137,11 @@ def __get_1_item_consequents(itemsets: List[str]) -> List[Tuple[str]]:
     Returns:
         List[Tuple[str]]: List of consequents, where each tuple contains one item.
     """
-    return [(itemsets[i],) for i in range(len(itemsets))]
+    return [(itemsets[i], ) for i in range(len(itemsets))]
 
 
-def __apriori_gen(old_candidates: List[Tuple[str]], k: int) -> List[Tuple[str]]:
+def __apriori_gen(old_candidates: List[Tuple[str]],
+                  k: int) -> List[Tuple[str]]:
     """Similar to the apriori gen method, this algorithm merges consequents of the previous
     pass satisfying the minimum confidence constraint to generate new candidate consequences
     and thus new rules.
@@ -150,23 +162,21 @@ def __apriori_gen(old_candidates: List[Tuple[str]], k: int) -> List[Tuple[str]]:
                     skip = True
                     break
 
-            if not skip and old_candidates[i][k - 1] < old_candidates[j][k - 1]:
-                candidates.add(old_candidates[i] + (old_candidates[j][k - 1],))
+            if not skip and old_candidates[i][k - 1] < old_candidates[j][k -
+                                                                         1]:
+                candidates.add(old_candidates[i] +
+                               (old_candidates[j][k - 1], ))
 
     cands = [
-        candidate
-        for candidate in candidates
-        if all(
-            candidate[:i] + candidate[i + 1:] in old_candidates
-            for i in range(len(candidate))
-        )
+        candidate for candidate in candidates
+        if all(candidate[:i] + candidate[i + 1:] in old_candidates
+               for i in range(len(candidate)))
     ]
     return cands
 
 
-def minimal_non_redundant_rules(
-    closed_frequent_itemsets: DataFrame, min_conf: float = 0.5
-) -> DataFrame:
+def minimal_non_redundant_rules(closed_frequent_itemsets: DataFrame,
+                                min_conf: float = 0.5) -> DataFrame:
     """Determines the set of minimal non redundant rules by first calculating the generic basis and then
     the transitive reduction of the informative basis, all according to 'Mining minimal non-redundant
     association rules'.
@@ -189,10 +199,10 @@ def minimal_non_redundant_rules(
 
     generating_set = generic_basis(gen_to_cls)
     generating_set.extend(
-        transitive_reduction_of_informative_basis(gen_to_cls, min_conf)
-    )
+        transitive_reduction_of_informative_basis(gen_to_cls, min_conf))
 
-    return DataFrame(generating_set, index=[i for i in range(len(generating_set))])
+    return DataFrame(generating_set,
+                     index=[i for i in range(len(generating_set))])
 
 
 def generic_basis(
@@ -225,8 +235,8 @@ def generic_basis(
 
 
 def transitive_reduction_of_informative_basis(
-    generators: Dict[Tuple[str], Tuple[Tuple[str], float]], min_conf: float
-) -> List[Dict[str, Any]]:
+        generators: Dict[Tuple[str], Tuple[Tuple[str], float]],
+        min_conf: float) -> List[Dict[str, Any]]:
     """Calculates the transitive reduction of the informative basis for approximate association rules according
     to the paper 'Mining minimal non-redundant association rules'.
 
@@ -264,8 +274,10 @@ def transitive_reduction_of_informative_basis(
                 skip[j] = True
                 s_j = {}
             else:
-                s_j = {fci: supp for fci,
-                       supp in FC_j[j].items() if closure < set(fci)}
+                s_j = {
+                    fci: supp
+                    for fci, supp in FC_j[j].items() if closure < set(fci)
+                }
             S.append(s_j)
 
         for j in range(len(S)):
@@ -281,20 +293,18 @@ def transitive_reduction_of_informative_basis(
                     conf = support_fc / gen_supp
 
                     if conf >= min_conf:
-                        ib.append(
-                            {
-                                "antecedents": generator,
-                                "consequents": consequent,
-                                "support": support_fc,
-                                "confidence": conf,
-                            }
-                        )
+                        ib.append({
+                            "antecedents": generator,
+                            "consequents": consequent,
+                            "support": support_fc,
+                            "confidence": conf,
+                        })
     return ib
 
 
-def classification_rules(
-    frequent_itemsets: DataFrame, label: str, min_conf: float = 0.5
-) -> DataFrame:
+def classification_rules(frequent_itemsets: DataFrame,
+                         label: str,
+                         min_conf: float = 0.5) -> DataFrame:
     """Constructs association rules from frequent itemsets directly.
     The label is expected to be a singe string which is the attribute
     of the consequent.
@@ -314,13 +324,15 @@ def classification_rules(
         "itemsets").to_dict()["support"]
 
     # Skip over too short rules or itemset not containing the label
-    frequent_itemsets = frequent_itemsets[(frequent_itemsets['itemsets'].map(len) >= 2) &
-                                          (frequent_itemsets['itemsets'].map(lambda x: any(label in str(i) for i in x))) &
-                                          (frequent_itemsets['support'] != 0)]
+    frequent_itemsets = frequent_itemsets[
+        (frequent_itemsets['itemsets'].map(len) >= 2)
+        & (frequent_itemsets['itemsets'].map(lambda x: any(label in str(i)
+                                                           for i in x))) &
+        (frequent_itemsets['support'] != 0)]
 
     if "ignore" in frequent_itemsets.columns:
-        frequent_itemsets = frequent_itemsets[(
-            frequent_itemsets["ignore"] != True)]
+        frequent_itemsets = frequent_itemsets[(frequent_itemsets["ignore"] !=
+                                               True)]
 
     rules = []
     for idx, row in frequent_itemsets.iterrows():
@@ -335,21 +347,21 @@ def classification_rules(
             if label not in str(item):
                 antecedent.append(item)
             else:
-                consequent = (item,)
+                consequent = (item, )
 
         antecedent = tuple(antecedent)
         conf = confidence(support_mapping[antecedent], support)
         if conf < min_conf:
             continue
-        rule = {"antecedents": antecedent, "consequents": consequent,
-                "support": support, "confidence": conf}
+        rule = {
+            "antecedents": antecedent,
+            "consequents": consequent,
+            "support": support,
+            "confidence": conf
+        }
         rule.update(
-            measure_dict(
-                support_mapping[antecedent],
-                support_mapping[consequent],
-                support
-            )
-        )
+            measure_dict(support_mapping[antecedent],
+                         support_mapping[consequent], support))
         rules.append(rule)
 
     return DataFrame(
@@ -369,15 +381,13 @@ def get_classification_rules(rules: DataFrame, label: str) -> DataFrame:
     Returns:
         DataFrame: All rules with only the label as consequent.
     """
-    return rules.loc[
-        rules["consequents"].apply(lambda x: len(
-            x) == 1 and x[0].startswith(label))
-    ]
+    return rules.loc[rules["consequents"].apply(
+        lambda x: len(x) == 1 and x[0].startswith(label))]
 
 
-def prune_by_improvement(
-    db: DataFrame, rules: DataFrame, minimp: float = 0.002
-) -> DataFrame:
+def prune_by_improvement(db: DataFrame,
+                         rules: DataFrame,
+                         minimp: float = 0.002) -> DataFrame:
     """Calculates the improvement for all rules and prunes any rules that do not
     fulfill the minimp constraint. It also finds all the subrules that are not conatained
     within rules to stick to the definition of improvement.
@@ -396,9 +406,9 @@ def prune_by_improvement(
     return _prune_by_improvement(potential_rules, supports, minimp)
 
 
-def _prune_by_improvement(
-    rules: DataFrame, support_info: Dict[Tuple[int], Any], minimp: float
-) -> DataFrame:
+def _prune_by_improvement(rules: DataFrame, support_info: Dict[Tuple[int],
+                                                               Any],
+                          minimp: float) -> DataFrame:
     """Uses all the support information stored in support info to calculate the max confidence of any
     subrule for all the rules in the rules DataFrame.
 
@@ -415,9 +425,8 @@ def _prune_by_improvement(
         rule = row["antecedents"]
         items = sorted(rule)
         itemsets = list(
-            chain.from_iterable(combinations(items, r)
-                                for r in range(1, len(items)))
-        )
+            chain.from_iterable(
+                combinations(items, r) for r in range(1, len(items))))
         for itemset in itemsets:
             ant_sup = support_info[itemset]
             cons_sup = support_info[itemset + row["consequents"]]
@@ -451,15 +460,17 @@ def _compare_to_mined_rules(rules: DataFrame, minimp: float) -> DataFrame:
         lambda x: frozenset(x['antecedents'] + x['consequents']), axis=1)
 
     if len(rules) > 100000:
-        for row in rules.sort_values(by="rule_items", key=lambda x: x.map(len)).iloc[:1250].itertuples():
+        for row in rules.sort_values(
+                by="rule_items",
+                key=lambda x: x.map(len)).iloc[:1250].itertuples():
             if row[0] in drop_rows:
                 continue
             rule_items = row[-1]
             rule_conf = row[4]
-            temp = (rules.loc[rules["rule_items"] > rule_items,"confidence"] - rule_conf  < minimp)
+            temp = (rules.loc[rules["rule_items"] > rule_items, "confidence"] -
+                    rule_conf < minimp)
             if temp.any():
                 drop_rows.update(temp.loc[temp == True].index)
-
 
     rules = rules.drop(drop_rows)
     drop_rows.clear()
@@ -467,7 +478,8 @@ def _compare_to_mined_rules(rules: DataFrame, minimp: float) -> DataFrame:
     for row in rules.itertuples():
         rule_items = row[-1]
         rule_conf = row[4]
-        temp = (rules.loc[rules["rule_items"] > rule_items,"confidence"] - rule_conf  < minimp)
+        temp = (rules.loc[rules["rule_items"] > rule_items, "confidence"] -
+                rule_conf < minimp)
         if temp.any():
             drop_rows.update(temp.loc[temp == True].index)
 
@@ -493,7 +505,7 @@ def _get_proper_subsets(rules: DataFrame) -> Dict[Tuple[Any], int]:
     for _, group in grouped_rules:
         for i in range(len(group)):
             row = rules.iloc[i]
-            for j in range(i+1, len(group)):
+            for j in range(i + 1, len(group)):
                 other = rules.iloc[j]
                 if set(row["antecedents"]) < set(other["antecedents"]):
                     drop_list.append(row.name)
@@ -505,9 +517,8 @@ def _get_proper_subsets(rules: DataFrame) -> Dict[Tuple[Any], int]:
         rule = row[0]
         items = sorted(rule)
         itemsets = set(
-            chain.from_iterable(combinations(items, r)
-                                for r in range(1, len(items)))
-        )
+            chain.from_iterable(
+                combinations(items, r) for r in range(1, len(items))))
         for itemset in itemsets:
             required_sets.add(itemset + row[1])
         required_sets.update(itemsets)
@@ -516,8 +527,8 @@ def _get_proper_subsets(rules: DataFrame) -> Dict[Tuple[Any], int]:
 
 
 def _get_subset_supports(
-    db: DataFrame, subsets: Dict[Tuple[Any], int]
-) -> Dict[Tuple[Any], int]:
+        db: DataFrame, subsets: Dict[Tuple[Any],
+                                     int]) -> Dict[Tuple[Any], int]:
     """Counts the support for all subsets generated by the _get_proper_subsets function.
     It thereby increments the counts associated with each itemset.
 
@@ -556,25 +567,26 @@ def __compare_attribute(row: Series, item: str) -> bool:
     """
     # Handle clustering {x,y} = [20,30] x [25,35]
     if item.startswith("{"):
-        attrlist = item[1: item.find("}")]
+        attrlist = item[1:item.find("}")]
         names = [name.strip() for name in attrlist.split(",")]
         lower_boundaries = [
-            s.strip() for s in item[item.find("[") + 1: item.find("]")].split(",")
+            s.strip()
+            for s in item[item.find("[") + 1:item.find("]")].split(",")
         ]
         second_interval = item[item.find("x") + 3:]
         upper_boundaries = [
-            s.strip() for s in second_interval[: second_interval.find("]")].split(",")
+            s.strip()
+            for s in second_interval[:second_interval.find("]")].split(",")
         ]
 
         for i in range(len(names)):
             name = names[i]
             if row[name] < float(lower_boundaries[i]) and row[name] > float(
-                upper_boundaries[i]
-            ):
+                    upper_boundaries[i]):
                 return False
         return True
 
-    else:
+    elif "=" in item:
         name, _, value = item.partition("=")
         name = name.strip()
         value = value.strip()
@@ -584,3 +596,31 @@ def __compare_attribute(row: Series, item: str) -> bool:
             return float(lower) <= row[name] <= float(upper)
         else:
             return str(row[name]) == value
+
+    else:
+        # Handle the binary case w/o discretization
+        return row[item]
+
+
+def get_tidlists(db: DataFrame, rules: DataFrame) -> DataFrame:
+    """Creates a copy of the rules DataFrame with a new 
+    column called 'tidlists' that stores a defaultdict 
+    with a set of all TIDs.
+
+    Args:
+        db (DataFrame): Database that was initially mined
+        rules (DataFrame): Mined rules
+
+    Returns:
+        DataFrame: Copy of rules DataFrame with additional
+        tidlists column.
+    """
+    rules = rules.copy()
+    rules["tidlists"] = rules.apply(lambda row: set(), axis=1)
+    for tid, row in db.iterrows():
+        for rule_idx, rule in rules.iterrows():
+            itemset = rule["antecedents"] + rule["consequents"]
+            if all(__compare_attribute(row, item) for item in itemset):
+                rule["tidlists"].add(tid)
+
+    return rules
