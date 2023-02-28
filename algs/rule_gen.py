@@ -1,4 +1,3 @@
-from collections import defaultdict
 from itertools import chain, combinations
 from typing import Any, Dict, Iterator, List, Tuple
 from pandas import DataFrame, Series
@@ -108,16 +107,15 @@ def generate_rules(frequent_itemsets: DataFrame,
                                      m + 1)
 
     rules = []
-    for itemsets in frequent_itemsets.iterrows():
-        itemset = itemsets[1]["itemsets"]
+    for _, itemsets in frequent_itemsets.iterrows():
+        itemset = itemsets["itemsets"]
         # Some algorithms prune itemsets, but their support information would still be
         # required. This itemsets are added to the df but ignore is True for them.
-        if "ignore" in frequent_itemsets.columns and itemsets[1][
-                "ignore"] == True:
+        if "ignore" in frequent_itemsets.columns and itemsets["ignore"] == True:
             continue
         if len(itemset) >= 2:
             consequents = __get_1_item_consequents(itemset)
-            for rule in __ap_genrules(itemsets[1], consequents, 1):
+            for rule in __ap_genrules(itemsets, consequents, 1):
                 rules.append(rule)
 
     df = DataFrame(
@@ -190,11 +188,11 @@ def minimal_non_redundant_rules(closed_frequent_itemsets: DataFrame,
         DataFrame: Minimal non-redundant association rules with confidence, support, antecedents and consequents.
     """
     gen_to_cls = {
-        tuple(itemset[1]["generators"]): (
-            tuple(itemset[1]["closed_itemsets"]),
-            itemset[1]["support"],
+        tuple(itemset["generators"]): (
+            tuple(itemset["closed_itemsets"]),
+            itemset["support"],
         )
-        for itemset in closed_frequent_itemsets.iterrows()
+        for _, itemset in closed_frequent_itemsets.iterrows()
     }
 
     generating_set = generic_basis(gen_to_cls)
@@ -539,15 +537,9 @@ def _get_subset_supports(
     Returns:
         Dict[Tuple[Any], int]: All subsets with their support in the given DB
     """
-    for idx, row in db.iterrows():
+    for _, row in db.iterrows():
         for itemset in subsets.keys():
-            supported = True
-            for item in itemset:
-                supported = __compare_attribute(row, item)
-                if supported == False:
-                    break
-
-            if supported:
+            if all(__compare_attribute(row, item) for item in itemset):
                 subsets[itemset] += 1
 
     return subsets
@@ -618,7 +610,7 @@ def get_tidlists(db: DataFrame, rules: DataFrame) -> DataFrame:
     rules = rules.copy()
     rules["tidlists"] = rules.apply(lambda row: set(), axis=1)
     for tid, row in db.iterrows():
-        for rule_idx, rule in rules.iterrows():
+        for _, rule in rules.iterrows():
             itemset = rule["antecedents"] + rule["consequents"]
             if all(__compare_attribute(row, item) for item in itemset):
                 rule["tidlists"].add(tid)
