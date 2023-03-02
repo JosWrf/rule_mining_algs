@@ -78,17 +78,23 @@ class RuleIndividuum:
 
         return items
 
-    def matching_attributes(self, record: pd.Series) -> List[str]:
-        marked = []
+    def matching_attributes(self, record: pd.Series) -> bool:
+        """Matches a row of the database against the individual.
+
+        Args:
+            record (pd.Series): Row of the database
+
+        Returns:
+            bool: True, when the record is covered by the individuum, False elsewise.
+        """
         for name, gene in self.items.items():
             val = record[name]
             if gene.is_numerical():
                 if val > gene.upper or val < gene.lower:
-                    return []
+                    return False
             elif val != gene.value:
-                return []
-            marked.append(name)
-        return marked
+                return False
+        return True
 
     def crossover(self, other: Any, probability: float) -> Tuple[Any, Any]:
         """Performs crossover operator to generate two offsprings from two individuals.
@@ -320,11 +326,13 @@ def _update_marked_records(
         marked_records (Dict[int, bool]): Stores for each record whether its already marked
         chosen (RuleIndividuum): The fittest itemset of the fully evolved population
     """
+    attributes = [name for name in chosen.items.keys()]
+    db = db[attributes]
     for i in range(len(db)):
         row = db.iloc[i]
         matches = chosen.matching_attributes(row)
         if matches:
-            marked_records.loc[i, matches] += 1
+            marked_records.loc[i, attributes] += 1
 
 
 def gar_plus(
