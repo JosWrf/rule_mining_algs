@@ -1,6 +1,7 @@
 from itertools import chain, combinations
 from typing import Any, Dict, Iterator, List, Tuple
 
+import pandas as pd
 from pandas import DataFrame, Series
 
 from algs.util import confidence, measure_dict
@@ -413,9 +414,12 @@ def _compare_to_mined_rules(rules: DataFrame, minimp: float) -> DataFrame:
         raise Exception("Only a single attribute as antecedent allowed.")
     drop_rows = set()
 
+    pd.options.mode.chained_assignment = None  # Disable the warning
     # Preprocess the DataFrame
     rules['rule_items'] = rules.apply(
         lambda x: frozenset(x['antecedents'] + x['consequents']), axis=1)
+
+    pd.options.mode.chained_assignment = 'warn'  # Enable the warning
 
     if len(rules) > 100000:
         for row in rules.sort_values(
