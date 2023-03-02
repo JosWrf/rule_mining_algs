@@ -36,7 +36,6 @@ NOTE: The algorithms are implemented in pure Python which makes them rather slow
 
 ```python
 from algs.models import StandardMiner
-from algs.rule_gen import generate_rules
 from algs.data import load_store_data
 
 data_df = load_store_data() # Load store dataset

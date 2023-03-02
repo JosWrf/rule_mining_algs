@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rule_mining_algs"
+version = "0.1.0"
+authors = [{ name = "Josef Würf", email = "sepp2357@yahoo.de" }]
+description = "The package contains a few selected association rule mining algorithms."
+readme = "README.md"
+requires-python = ">=3.7"
+keywords = ["Association Rule Mining"]
+classifiers = ["Programming Language :: Python :: 3"]
+license = { file = "LICENSE" }
+dependencies = [
+    "mlxtend >= 0.21.0",
+    "numpy >= 1.20.0",
+    "pandas >= 1.3.0",
+    "scikit_learn >= 1.1.0",
+]
+
+[project.urls]
+repository = "https://github.com/JosWrf/rule_mining_algs"
+
+[tool.setuptools]
+include-package-data = true
+packages = ["algs"]

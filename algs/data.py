@@ -1,5 +1,7 @@
+import pkg_resources
 import pandas as pd
 from mlxtend.preprocessing import TransactionEncoder
+
 
 def load_store_data() -> pd.DataFrame:
     """ Loads the stored_data.csv file and binarizes the data.
@@ -8,16 +10,20 @@ def load_store_data() -> pd.DataFrame:
         pd.DataFrame: One-hot encoded store data, where each column 
         corresponds to an item.
     """
-    data =[]
-    with open("datasets/store_data.csv") as f:
+    data = []
+    filename = pkg_resources.resource_filename(
+        __name__, "datasets/store_data.csv")
+    with open(filename) as f:
         for line in f:
-            transaction = [item.strip() for item in line.strip().rstrip().split(",")]
+            transaction = [item.strip()
+                           for item in line.strip().rstrip().split(",")]
             data.append(transaction)
 
     te = TransactionEncoder()
     te_ary = te.fit_transform(data)
     data_df = pd.DataFrame(te_ary, columns=te.columns_)
     return data_df
+
 
 def load_shroom_data() -> pd.DataFrame:
     """Loads the mushroom dataset and names each column thereby. Further the
@@ -28,7 +34,7 @@ def load_shroom_data() -> pd.DataFrame:
         pd.DataFrame: DataFrame storing the categorical value for each attribute, with 
         the stalk-root attribute being dropped.
     """
-    names=[
+    names = [
         "label",
         "cap-shape",
         "cap-surface",
@@ -54,12 +60,13 @@ def load_shroom_data() -> pd.DataFrame:
         "population"]
 
     df = pd.read_csv(
-        "datasets/agaricus-lepiota.data",
-        names=names, index_col= False
+        pkg_resources.resource_filename(
+            __name__, "datasets/agaricus-lepiota.data"),
+        names=names, index_col=False
     )
 
     df["id"] = [i for i in range(len(df))]
-    df.set_index("id",inplace=True)
+    df.set_index("id", inplace=True)
 
     # Drop the stalk-root attribute since it has unknown values for 2480 instances
     df.drop("stalk-root", axis=1, inplace=True)
