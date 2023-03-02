@@ -1,17 +1,9 @@
 from itertools import chain, combinations
 from typing import Any, Dict, Iterator, List, Tuple
+
 from pandas import DataFrame, Series
 
-from algs.util import (
-    confidence,
-    conviction,
-    cosine,
-    imbalance_ratio,
-    independent_cosine,
-    kulczynski,
-    lift,
-    measure_dict,
-)
+from algs.util import confidence, measure_dict
 
 
 def generate_rules(frequent_itemsets: DataFrame,
@@ -66,39 +58,7 @@ def generate_rules(frequent_itemsets: DataFrame,
                     support_rule,
                     "confidence":
                     conf,
-                    "cosine":
-                    cosine(
-                        support_mapping[antecedent],
-                        support_mapping[consequent],
-                        support_rule,
-                    ),
-                    "idependent_cosine":
-                    independent_cosine(support_mapping[antecedent],
-                                       support_mapping[consequent]),
-                    "lift":
-                    lift(
-                        support_mapping[antecedent],
-                        support_mapping[consequent],
-                        support_rule,
-                    ),
-                    "conviction":
-                    conviction(
-                        support_mapping[antecedent],
-                        support_mapping[consequent],
-                        support_rule,
-                    ),
-                    "imbalance_ratio":
-                    imbalance_ratio(
-                        support_mapping[antecedent],
-                        support_mapping[consequent],
-                        support_rule,
-                    ),
-                    "kulczynksi":
-                    kulczynski(
-                        support_mapping[antecedent],
-                        support_mapping[consequent],
-                        support_rule,
-                    ),
+                    **measure_dict(support_mapping[antecedent], support_mapping[consequent], support_rule)
                 }
 
         if len(itemset["itemsets"]) > m + 1:
