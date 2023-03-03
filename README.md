@@ -4,6 +4,12 @@ Several algorithms for mining association rules have been implemented in this re
 
 NOTE: The algorithms are implemented in pure Python which makes them rather slow.
 
+## Installation
+
+```bash
+pip install rule-mining-algs
+```
+
 ## Different Algorithms thus far
 
 - AIS
