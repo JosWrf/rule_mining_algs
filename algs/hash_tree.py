@@ -98,7 +98,7 @@ class HashTree:
     def get_frequent_itemsets(
         self, min_support: float, transaction_count: int
     ) -> Dict[Tuple[str], float]:
-        """Finds all itemsets in the tree, whose count / |transactions| >= min_support and
+        """Finds all itemsets in the tree, whose count / len(transactions) >= min_support and
         returns them.
 
         Args:
@@ -120,7 +120,8 @@ class HashTree:
             itemsets = {}
             for child_node in self.children.values():
                 itemsets.update(
-                    child_node.get_frequent_itemsets(min_support, transaction_count)
+                    child_node.get_frequent_itemsets(
+                        min_support, transaction_count)
                 )
 
             return itemsets
