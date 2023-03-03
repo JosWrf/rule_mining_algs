@@ -1,4 +1,4 @@
-algs.models
+﻿algs.models
 ===========
 
 .. automodule:: algs.models

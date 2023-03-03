@@ -1,7 +1,7 @@
-algs.data
-=========
+﻿algs.apriori
+============
 
-.. automodule:: algs.data
+.. automodule:: algs.apriori
 
    
    
@@ -13,8 +13,9 @@ algs.data
 
    .. autosummary::
    
-      load_shroom_data
-      load_store_data
+      a_close
+      apriori
+      closure
    
    
 

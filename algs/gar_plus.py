@@ -258,7 +258,8 @@ def _count_support(
 
         individuum.support = relevant_db.all(axis=1).sum()
         individuum.antecedent_supp = (
-            relevant_db.drop(individuum.consequent, axis=1, level=0).all(axis=1).sum()
+            relevant_db.drop(individuum.consequent, axis=1,
+                             level=0).all(axis=1).sum()
         )
 
         mask = (relevant_db.all(axis=1)) & (marked_rows.sum(axis=1) != 0)
@@ -403,7 +404,8 @@ def gar_plus(
     best_rules_found = []
     intervals = _get_lower_upper_bound(db, num_cat_attrs)
     # Store a counter for each attribute, that is incremented when the row is covered by a rule
-    marked_rows = pd.DataFrame(0, index=[i for i in range(n)], columns=list(db.columns))
+    marked_rows = pd.DataFrame(
+        0, index=[i for i in range(n)], columns=list(db.columns))
 
     for _ in range(num_rules):
         population = _generate_first_rule_population(

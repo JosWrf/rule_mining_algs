@@ -1,7 +1,7 @@
-algs.gar
-========
+﻿algs.gar\_plus
+==============
 
-.. automodule:: algs.gar
+.. automodule:: algs.gar_plus
 
    
    
@@ -13,7 +13,7 @@ algs.gar
 
    .. autosummary::
    
-      gar
+      gar_plus
    
    
 
@@ -23,8 +23,7 @@ algs.gar
 
    .. autosummary::
    
-      Gene
-      Individuum
+      RuleIndividuum
    
    
 

@@ -1,4 +1,4 @@
-algs.rule\_gen
+﻿algs.rule\_gen
 ==============
 
 .. automodule:: algs.rule_gen

@@ -449,7 +449,7 @@ def get_generalizations_specializations(
 
 
 def _get_subintervals(
-    db: DataFrame, specializations: Dict[Tuple[Item], int], itemset: Tuple[int]
+    db: DataFrame, specializations: Dict[Tuple[Item], int], itemset: Tuple[Item]
 
 
 ) -> Tuple[Set[Tuple[Item]], Dict[Tuple[Item], int]]:
@@ -458,7 +458,7 @@ def _get_subintervals(
     Args:
         db (DataFrame): Transformed Database
         specializations (Dict[Tuple[Item], int]): All specializations of the given itemset
-        itemset (Tuple[int]): Itemset to substract a specialization from
+        itemset (Tuple[Item]): Itemset to substract a specialization from
 
     Returns:
         Tuple[Set[Tuple[Item]], Dict[Tuple[Item], int]]: Itemsets generated from the difference,
@@ -593,7 +593,7 @@ def remove_r_uninteresting_itemsets(
 
 def _generate_itemsets_by_join(
     old_itemsets: Dict[Tuple[Item], int], k: int
-) -> Iterator[Tuple[str]]:
+) -> Dict[Tuple[Item], int]:
     """Joins frequent k-1 itemsets to generate k itemsets.
     It assumes the frequent k-1 itemsets are lexicographically ordered .
 
@@ -601,8 +601,8 @@ def _generate_itemsets_by_join(
         old_itemsets (Dict[Tule[Item], int]): Frequent k-1 itemsets
         k (int): The number of items that must match to join two frequent k-1 itemsets
 
-    Yields:
-        Iterator[Tuple[str]]: A candidate k itemset
+    Return:
+        Dict[Tuple[Item], int]: Candidate k itemsets with support count 0
     """
     new_candidates = {}
 

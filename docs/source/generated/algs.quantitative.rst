@@ -1,4 +1,4 @@
-algs.quantitative
+﻿algs.quantitative
 =================
 
 .. automodule:: algs.quantitative

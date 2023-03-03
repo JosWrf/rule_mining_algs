@@ -1,7 +1,7 @@
-algs.hclique
-============
+﻿algs.data
+=========
 
-.. automodule:: algs.hclique
+.. automodule:: algs.data
 
    
    
@@ -13,7 +13,8 @@ algs.hclique
 
    .. autosummary::
    
-      hclique
+      load_shroom_data
+      load_store_data
    
    
 

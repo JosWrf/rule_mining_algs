@@ -1,7 +1,7 @@
-algs.ais
-========
+﻿algs.hclique
+============
 
-.. automodule:: algs.ais
+.. automodule:: algs.hclique
 
    
    
@@ -13,7 +13,7 @@ algs.ais
 
    .. autosummary::
    
-      ais
+      hclique
    
    
 

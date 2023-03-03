@@ -17,18 +17,17 @@ API Reference
 =============
 
 .. autosummary::
-   :toctree: _autosummary
-   :recursive:
+   :toctree: generated
 
-   algs.apriori
-   algs.fp_tree
-   algs.data
-   algs.gar
-   algs.gar_plus
-   algs.hclique
-   algs.quantitative
-   algs.rule_gen
-   algs.models
+      algs.apriori
+      algs.fp_tree
+      algs.data
+      algs.gar
+      algs.gar_plus
+      algs.hclique
+      algs.quantitative
+      algs.rule_gen
+      algs.models
 
 Indices and tables
 ==================

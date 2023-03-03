@@ -134,7 +134,13 @@ class Individuum:
                 [Individuum({gene.name: gene}) + ind for ind in seeds]
         return seeds
 
-    def to_tuple(self) -> Tuple[str]:
+    def to_tuple(self) -> Tuple[str, ...]:
+        """Converts an individual to a tuple of strings, where each 
+        gene and its values are respected.
+
+        Returns:
+            Tuple[str, ...]: String representation of the individuum
+        """
         items = []
         for gene in self.items.values():
             if gene.is_numerical():
@@ -203,11 +209,11 @@ def _generate_first_population(db: pd.DataFrame, population_size: int, interval_
         items = list(db.columns)
         # Add two random attributes and then fill up with a coin toss for each attribute
         attrs = random.sample(items, 2)
-        # If the target attribute is not sampled, removed the second sample 
+        # If the target attribute is not sampled, removed the second sample
         if set_attribute and set_attribute not in attrs:
             attrs = attrs[0:1] + [set_attribute]
             assert set_attribute in attrs
-            
+
         attrs = [itm for itm in items if itm not in attrs and random.random()
                  > 0.5] + attrs
         row = floor(random.uniform(0, len(db)-1))
@@ -251,6 +257,7 @@ def _process(db: pd.DataFrame, marked_rows: Dict[int, bool], population: List[In
         individual.marked = 0
 
     db.apply(__match, axis=1)
+
 
 def _amplitude(intervals: Dict[str, Tuple[float, float]], ind: Individuum) -> float:
     """Calculates the average amplitude over all numerical attributes.
@@ -325,9 +332,11 @@ def _update_marked_records(db: pd.DataFrame, marked_records: Dict[int, bool], ch
         chosen (Individuum): The fittest itemset of the fully evolved population
     """
     def __update_marks(record: pd.Series) -> None:
-        marked_records[record.name] = chosen.matches(record) or marked_records[record.name]
+        marked_records[record.name] = chosen.matches(
+            record) or marked_records[record.name]
 
     db.apply(__update_marks, axis=1)
+
 
 def gar(db: pd.DataFrame, num_cat_attrs: Dict[str, bool], num_sets: int, num_gens: int, population_size: int,
         omega: float, psi: float, mu: float, selection_percentage: float = 0.15, recombination_probability: float = 0.5,
@@ -377,7 +386,8 @@ def gar(db: pd.DataFrame, num_cat_attrs: Dict[str, bool], num_sets: int, num_gen
     intervals = _get_lower_upper_bound(db, num_cat_attrs)
 
     for n_itemsets in range(num_sets):
-        population = _generate_first_population(db, population_size, intervals, set_attribute)
+        population = _generate_first_population(
+            db, population_size, intervals, set_attribute)
         for n_gen in range(num_gens):
             _process(db, marked_rows, population)
 

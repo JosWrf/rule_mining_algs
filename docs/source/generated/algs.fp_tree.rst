@@ -1,4 +1,4 @@
-algs.fp\_tree
+﻿algs.fp\_tree
 =============
 
 .. automodule:: algs.fp_tree
