@@ -466,9 +466,9 @@ def _get_proper_subsets(rules: DataFrame) -> Dict[Tuple[Any], int]:
     drop_list = []
     for _, group in grouped_rules:
         for i in range(len(group)):
-            row = rules.iloc[i]
+            row = group.iloc[i]
             for j in range(i + 1, len(group)):
-                other = rules.iloc[j]
+                other = group.iloc[j]
                 if set(row["antecedents"]) < set(other["antecedents"]):
                     drop_list.append(row.name)
                     break
