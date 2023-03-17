@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rule_mining_algs"
-version = "0.1.0"
+version = "0.1.1"
 authors = [{ name = "Josef Würf", email = "sepp2357@yahoo.de" }]
 description = "The package contains a few selected association rule mining algorithms."
 readme = "README.md"

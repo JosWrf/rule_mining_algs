@@ -233,13 +233,13 @@ class Item:
 
     def __sub__(self, __o: object) -> object:
         if (
-            __o.lower > self.lower and __o.upper < self.upper or self.lower >= __o.upper
-        ):  # Inclusion relation would cause a split in 2 non-adjecent subintervals
-            return None
-        if (
             __o.lower == self.lower and __o.upper == self.upper
         ):  # Same interval -> categorical
             return __o
+        if (
+            __o.lower > self.lower and __o.upper < self.upper 
+        ):  # Inclusion relation would cause a split in 2 non-adjecent subintervals
+            return None
         if self.lower == __o.lower:  # [5,8] - [5,6] = [6,8]
             return Item(self.name, __o.upper, self.upper)
         else:  # [5,8] - [7,8] = [5,7]
@@ -437,6 +437,10 @@ def get_generalizations_specializations(
                 found_spec = 1
             elif itemset[i].is_specialization(items[i]):
                 found_gen = 1
+            # Neither a generalization nor a specialization
+            else:
+                attrs = False
+                break
 
         if found_gen + found_spec != 1 or not attrs:
             continue
