@@ -12,18 +12,17 @@ pip install rule-mining-algs
 
 ## Different Algorithms thus far
 
-- AIS
-- Apriori
-- FP-Growth
-- h-Clique (all-confidence pushed into Apriori-algorithm)
-- Quantitative Association Rules
-- AClose
-- Minimal Non-redundant rules
-- Rule Generation for apriori-like Algorithms
-- Brute-Force Mining of Classification Rules
-- Clustering to find intervals for numeric attributes
-- Evolutionary Algorithm to Discover Itemsets (GAR)
-- Evolutionary Algorithm to Discover Rules with fixed consequent (GAR-PLUS)
+- AIS [1]
+- Apriori [1]
+- FP-Growth [2]
+- h-Clique (all-confidence pushed into Apriori-algorithm) [3]
+- Quantitative Association Rules [4]
+- AClose [5]
+- Minimal Non-redundant rules [6]
+- Rule Generation for apriori-like Algorithms [1]
+- Clustering to find intervals for numeric attributes [7]
+- Evolutionary Algorithm to Discover Itemsets (GAR) [8]
+- Evolutionary Algorithm to Discover Rules with fixed consequent (GAR-PLUS) [9]
 
 ## Datasets
 
@@ -74,3 +73,14 @@ rules = mine_quant.run(shrooms)
 # Post processing step to obtain rules having only the label in the consequent
 classification_rules = get_classification_rules(rules, "label")
 ```
+
+## References
+[1] Rakesh Agrawal and Ramakrishnan Srikant. 1994. Fast Algorithms for Mining Association Rules in Large Databases. In Proceedings of the 20th International Conference on Very Large Data Bases (VLDB '94), 487–499.
+[2] Jiawei Han, Jian Pei, and Yiwen Yin. 2000. Mining frequent patterns without candidate generation. SIGMOD Rec. 29, 2 (June 2000), 1–12. 
+[3] H. Xiong, P. . -N. Tan and Vipin Kumar, Mining strong affinity association patterns in data sets with skewed support distribution, Third IEEE International Conference on Data Mining, 2003, pp. 387-394.
+[4] Ramakrishnan Srikant and Rakesh Agrawal. 1996. Mining quantitative association rules in large relational tables. SIGMOD Rec. 25, 2 (June 1996), 1–12. 
+[5] Pasquier, N., Bastide, Y., Taouil, R., Lakhal, L. (1999). Discovering Frequent Closed Itemsets for Association Rules. In: Beeri, C., Buneman, P. (eds) Database Theory — ICDT’99. ICDT 1999. Lecture Notes in Computer Science, vol 1540. 
+[6] Bastide, Yves, et al. Mining minimal non-redundant association rules using frequent closed itemsets. Computational Logic—CL 2000: First International Conference London, July 24–28, 2000 Proceedings.
+[7] Miller, Renée J., and Yuping Yang. Association rules over interval data. ACM SIGMOD Record 26.2 (1997): 452-461.
+[8] Mata, Jacinto, José-Luis Alvarez, and José-Cristobal Riquelme. An evolutionary algorithm to discover numeric association rules. Proceedings of the 2002 ACM symposium on Applied computing. 2002.
+[9] Alvarez, Victoria Pachon, and Jacinto Mata Vazquez. An evolutionary algorithm to discover quantitative association rules from huge databases without the need for an a priori discretization. Expert Systems with Applications 39.1 (2012): 585-593.
