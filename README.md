@@ -29,9 +29,16 @@ pip install rule-mining-algs
 - store_data.csv: [Store data](https://user.informatik.uni-goettingen.de/~sherbold/store_data.csv)
 - agaricus-lepiota.data: [Mushroom dataset](https://archive.ics.uci.edu/ml/datasets/mushroom)
 
-## Build and Run models
+# Usage
+## Models 
+Models encapsulate a discretization algorithm, an itemset mining algorithm and an algorithm to generate association rules.
+(In case of using the GAR and GAR-plus models no discretization is required.)
 
-- Transformers: static_discretization(equi-depth/width partitioning of numeric attributes),
+There's no need to use a model, however. 
+Instead the individual algorithms can be used as is.
+Models just provide an abstraction mechanism.
+## Build and Run models
+- Discretization Algorithms (Transformers): static_discretization(equi-depth/width partitioning of numeric attributes),
   cluster_interval_data(birch clustering to find intervals for numeric attributes)
 - Itemset_Miners: see [Algorithms](#Different-Algorithms-thus-far) section
 - Rule_Miners: generate_rules(Standard algorithm to generate rules from itemsets),
@@ -76,11 +83,19 @@ classification_rules = get_classification_rules(rules, "label")
 
 ## References
 [1] Rakesh Agrawal and Ramakrishnan Srikant. 1994. Fast Algorithms for Mining Association Rules in Large Databases. In Proceedings of the 20th International Conference on Very Large Data Bases (VLDB '94), 487–499.
+
 [2] Jiawei Han, Jian Pei, and Yiwen Yin. 2000. Mining frequent patterns without candidate generation. SIGMOD Rec. 29, 2 (June 2000), 1–12. 
+
 [3] H. Xiong, P. . -N. Tan and Vipin Kumar, Mining strong affinity association patterns in data sets with skewed support distribution, Third IEEE International Conference on Data Mining, 2003, pp. 387-394.
+
 [4] Ramakrishnan Srikant and Rakesh Agrawal. 1996. Mining quantitative association rules in large relational tables. SIGMOD Rec. 25, 2 (June 1996), 1–12. 
+
 [5] Pasquier, N., Bastide, Y., Taouil, R., Lakhal, L. (1999). Discovering Frequent Closed Itemsets for Association Rules. In: Beeri, C., Buneman, P. (eds) Database Theory — ICDT’99. ICDT 1999. Lecture Notes in Computer Science, vol 1540. 
+
 [6] Bastide, Yves, et al. Mining minimal non-redundant association rules using frequent closed itemsets. Computational Logic—CL 2000: First International Conference London, July 24–28, 2000 Proceedings.
+
 [7] Miller, Renée J., and Yuping Yang. Association rules over interval data. ACM SIGMOD Record 26.2 (1997): 452-461.
+
 [8] Mata, Jacinto, José-Luis Alvarez, and José-Cristobal Riquelme. An evolutionary algorithm to discover numeric association rules. Proceedings of the 2002 ACM symposium on Applied computing. 2002.
+
 [9] Alvarez, Victoria Pachon, and Jacinto Mata Vazquez. An evolutionary algorithm to discover quantitative association rules from huge databases without the need for an a priori discretization. Expert Systems with Applications 39.1 (2012): 585-593.
